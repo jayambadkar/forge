@@ -1,0 +1,16 @@
+#!/usr/bin/env python3
+"""Write a decision trace next to a scored run. Not the graded entry point."""
+
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from forge_engine.cli import main
+
+if __name__ == "__main__":
+    # explain <folder> <trace.jsonl> reuses the runner and also writes the scored
+    # file the caller passes. Prefer: explain <folder> <output.jsonl> --trace <trace>
+    raise SystemExit(main())
