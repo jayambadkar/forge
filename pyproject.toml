@@ -1,0 +1,45 @@
+[project]
+name = "forge"
+version = "0.1.0"
+description = "Forge, the OS for financial monitoring."
+requires-python = ">=3.11"
+dependencies = ["numpy", "scikit-learn"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["system"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 160
+src = ["system", "ml", "tests", "eval", "fixtures"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM", "N"]
+
+[tool.ruff.lint.per-file-ignores]
+"ml/*" = ["E402"]
+"eval/*" = ["E402"]
+"tests/*" = ["E402"]
+"fixtures/*" = ["E402"]
+
+[tool.mypy]
+python_version = "3.12"
+mypy_path = "system"
+files = ["system", "ml"]
+warn_unused_configs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+no_implicit_optional = true
+
+[[tool.mypy.overrides]]
+module = ["numpy", "numpy.*", "sklearn", "sklearn.*", "lightgbm", "lightgbm.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["train", "train_risk"]
+disallow_untyped_defs = false
+check_untyped_defs = false
