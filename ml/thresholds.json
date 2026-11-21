@@ -1,5 +1,5 @@
 {
-  "close_probability": 0.7,
+  "close_probability": 0.95,
   "ship_into_system_run": false,
   "chosen_lightgbm": {
     "num_leaves": 31,

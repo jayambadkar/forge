@@ -1,7 +1,7 @@
 {
   "label_source": "Weak supervision: priority vote of the policy checks. Not hidden-test labels.",
   "ship_into_system_run": false,
-  "why": "The hold-out is scored against the policy votes. The policy matches those votes, so its expected cost is 0. The model is not loaded by system/run.",
+  "why": "The hold-out is scored against the policy votes. The policy matches those votes,so its expected cost is 0. The model is not loaded by system/run.",
   "groups": {
     "evidence_coverage": [
       "n_docs",
@@ -10,36 +10,55 @@
       "has_register",
       "has_event",
       "has_fraud",
-      "value_covered"
+      "value_covered",
+      "n_doc_types",
+      "log_doc_chars"
     ],
     "amount_match": [
       "best_amount_ratio",
-      "n_amount_matches"
+      "n_amount_matches",
+      "largest_unmatched"
     ],
     "identity_match": [
       "party_in_doc_share",
-      "own_name_share"
+      "own_name_share",
+      "name_on_statement"
     ],
     "profile_deviation": [
       "income_multiple",
-      "amount_over_baseline"
+      "amount_over_baseline",
+      "one_way_multiple"
     ],
     "flow_pattern": [
       "pass_through",
       "n_counterparties",
       "structuring_flag",
       "n_in",
-      "n_out"
+      "n_out",
+      "n_tx",
+      "log_sum_in",
+      "log_sum_out",
+      "log_max",
+      "cash_share",
+      "round_share",
+      "card_share",
+      "n_person_out",
+      "company_in_share",
+      "equal_split",
+      "n_alerts",
+      "span_days"
     ],
     "geography_risk": [
-      "high_risk_corridor"
+      "high_risk_corridor",
+      "n_countries"
     ],
     "list_agreement": [
       "list_alert"
     ],
     "prior_review": [
       "prior_same_rule",
-      "n_prior_reviews"
+      "n_prior_reviews",
+      "review_mentions_amount"
     ],
     "account_history": [
       "dormant_flag",
@@ -48,6 +67,11 @@
     "held_payment": [
       "held_flag",
       "held_without_invoice"
+    ],
+    "customer": [
+      "is_business",
+      "log_baseline",
+      "n_expected_countries"
     ]
   },
   "split": {
@@ -68,7 +92,7 @@
           "lambda_l1": 0.0,
           "lambda_l2": 0.0
         },
-        "inner_expected_cost": 0.0459
+        "inner_expected_cost": 0.0097
       },
       {
         "params": {
@@ -80,7 +104,7 @@
           "lambda_l1": 1.0,
           "lambda_l2": 1.0
         },
-        "inner_expected_cost": 0.0547
+        "inner_expected_cost": 0.01
       },
       {
         "params": {
@@ -92,7 +116,7 @@
           "lambda_l1": 0.1,
           "lambda_l2": 0.1
         },
-        "inner_expected_cost": 0.0594
+        "inner_expected_cost": 0.0122
       },
       {
         "params": {
@@ -104,7 +128,7 @@
           "lambda_l1": 0.1,
           "lambda_l2": 0.1
         },
-        "inner_expected_cost": 0.0463
+        "inner_expected_cost": 0.0103
       },
       {
         "params": {
@@ -116,7 +140,7 @@
           "lambda_l1": 1.0,
           "lambda_l2": 1.0
         },
-        "inner_expected_cost": 0.0659
+        "inner_expected_cost": 0.0159
       },
       {
         "params": {
@@ -128,7 +152,7 @@
           "lambda_l1": 1.0,
           "lambda_l2": 0.1
         },
-        "inner_expected_cost": 0.0591
+        "inner_expected_cost": 0.0137
       }
     ],
     "chosen": {
@@ -140,14 +164,14 @@
       "lambda_l1": 0.0,
       "lambda_l2": 0.0
     },
-    "inner_expected_cost": 0.0459
+    "inner_expected_cost": 0.0097
   },
   "comparison_on_train_oof": {
     "lightgbm_full": {
       "n": 3200,
-      "expected_cost": 0.0369,
-      "wrongful_close_rate": 0.0,
-      "wrongful_closes": 0,
+      "expected_cost": 0.0125,
+      "wrongful_close_rate": 0.0006,
+      "wrongful_closes": 2,
       "confusion": {
         "labels": [
           "CLOSE",
@@ -156,46 +180,46 @@
         ],
         "counts": [
           [
-            1019,
+            900,
             2,
             0
           ],
           [
-            0,
-            1254,
-            23
+            2,
+            1284,
+            1
           ],
           [
             0,
-            33,
-            869
+            6,
+            1005
           ]
         ]
       },
       "gap": {
-        "mean_train_expected_cost": 0.0077,
-        "mean_validation_expected_cost": 0.0369
+        "mean_train_expected_cost": 0.0006,
+        "mean_validation_expected_cost": 0.0125
       },
       "folds": [
         {
-          "train_expected_cost": 0.0109,
-          "validation_expected_cost": 0.0406
+          "train_expected_cost": 0.0,
+          "validation_expected_cost": 0.0078
         },
         {
-          "train_expected_cost": 0.0121,
-          "validation_expected_cost": 0.0234
+          "train_expected_cost": 0.0,
+          "validation_expected_cost": 0.0187
         },
         {
-          "train_expected_cost": 0.0078,
-          "validation_expected_cost": 0.0453
+          "train_expected_cost": 0.0016,
+          "validation_expected_cost": 0.0031
         },
         {
-          "train_expected_cost": 0.0039,
-          "validation_expected_cost": 0.0344
+          "train_expected_cost": 0.0,
+          "validation_expected_cost": 0.011
         },
         {
-          "train_expected_cost": 0.0039,
-          "validation_expected_cost": 0.0406
+          "train_expected_cost": 0.0016,
+          "validation_expected_cost": 0.0219
         }
       ],
       "by_institution": {
@@ -231,7 +255,7 @@
         },
         "emoney": {
           "n": 800,
-          "expected_cost": 0.0737,
+          "expected_cost": 0.0037,
           "wrongful_close_rate": 0.0,
           "wrongful_closes": 0,
           "confusion": {
@@ -242,28 +266,28 @@
             ],
             "counts": [
               [
-                230,
+                291,
                 1,
                 0
               ],
               [
                 0,
-                332,
-                8
+                236,
+                0
               ],
               [
                 0,
-                20,
-                209
+                0,
+                272
               ]
             ]
           }
         },
         "investment": {
           "n": 800,
-          "expected_cost": 0.035,
-          "wrongful_close_rate": 0.0,
-          "wrongful_closes": 0,
+          "expected_cost": 0.0125,
+          "wrongful_close_rate": 0.0013,
+          "wrongful_closes": 1,
           "confusion": {
             "labels": [
               "CLOSE",
@@ -272,28 +296,28 @@
             ],
             "counts": [
               [
-                292,
+                256,
                 0,
                 0
               ],
               [
-                0,
-                278,
-                10
+                1,
+                282,
+                0
               ],
               [
                 0,
-                4,
-                216
+                0,
+                261
               ]
             ]
           }
         },
         "payments_fx": {
           "n": 801,
-          "expected_cost": 0.0387,
-          "wrongful_close_rate": 0.0,
-          "wrongful_closes": 0,
+          "expected_cost": 0.0337,
+          "wrongful_close_rate": 0.0012,
+          "wrongful_closes": 1,
           "confusion": {
             "labels": [
               "CLOSE",
@@ -302,19 +326,19 @@
             ],
             "counts": [
               [
-                251,
+                107,
                 1,
                 0
               ],
               [
-                0,
-                323,
-                5
+                1,
+                445,
+                1
               ],
               [
                 0,
-                9,
-                212
+                6,
+                240
               ]
             ]
           }
@@ -323,9 +347,9 @@
     },
     "lightgbm_grouped": {
       "n": 3200,
-      "expected_cost": 0.0559,
-      "wrongful_close_rate": 0.0019,
-      "wrongful_closes": 6,
+      "expected_cost": 0.0206,
+      "wrongful_close_rate": 0.0013,
+      "wrongful_closes": 4,
       "confusion": {
         "labels": [
           "CLOSE",
@@ -334,54 +358,54 @@
         ],
         "counts": [
           [
-            1016,
-            4,
-            1
+            900,
+            2,
+            0
           ],
           [
-            6,
-            1246,
-            25
+            3,
+            1279,
+            5
           ],
           [
-            0,
-            27,
-            875
+            1,
+            5,
+            1005
           ]
         ]
       },
       "gap": {
-        "mean_train_expected_cost": 0.0081,
-        "mean_validation_expected_cost": 0.0559
+        "mean_train_expected_cost": 0.0025,
+        "mean_validation_expected_cost": 0.0206
       },
       "folds": [
         {
-          "train_expected_cost": 0.0086,
-          "validation_expected_cost": 0.0563
-        },
-        {
-          "train_expected_cost": 0.007,
+          "train_expected_cost": 0.0016,
           "validation_expected_cost": 0.0187
         },
         {
-          "train_expected_cost": 0.0055,
-          "validation_expected_cost": 0.0953
+          "train_expected_cost": 0.0008,
+          "validation_expected_cost": 0.0094
         },
         {
-          "train_expected_cost": 0.0109,
-          "validation_expected_cost": 0.0469
+          "train_expected_cost": 0.0016,
+          "validation_expected_cost": 0.0031
+        },
+        {
+          "train_expected_cost": 0.0,
+          "validation_expected_cost": 0.0188
         },
         {
           "train_expected_cost": 0.0086,
-          "validation_expected_cost": 0.0625
+          "validation_expected_cost": 0.0531
         }
       ],
       "by_institution": {
         "bank": {
           "n": 799,
-          "expected_cost": 0.0125,
-          "wrongful_close_rate": 0.0013,
-          "wrongful_closes": 1,
+          "expected_cost": 0.0,
+          "wrongful_close_rate": 0.0,
+          "wrongful_closes": 0,
           "confusion": {
             "labels": [
               "CLOSE",
@@ -395,8 +419,8 @@
                 0
               ],
               [
-                1,
-                320,
+                0,
+                321,
                 0
               ],
               [
@@ -409,37 +433,7 @@
         },
         "emoney": {
           "n": 800,
-          "expected_cost": 0.1212,
-          "wrongful_close_rate": 0.005,
-          "wrongful_closes": 4,
-          "confusion": {
-            "labels": [
-              "CLOSE",
-              "RFI",
-              "ESCALATE"
-            ],
-            "counts": [
-              [
-                228,
-                3,
-                0
-              ],
-              [
-                4,
-                328,
-                8
-              ],
-              [
-                0,
-                16,
-                213
-              ]
-            ]
-          }
-        },
-        "investment": {
-          "n": 800,
-          "expected_cost": 0.0425,
+          "expected_cost": 0.0,
           "wrongful_close_rate": 0.0,
           "wrongful_closes": 0,
           "confusion": {
@@ -456,21 +450,199 @@
               ],
               [
                 0,
-                275,
-                13
+                236,
+                0
               ],
               [
                 0,
-                4,
-                216
+                0,
+                272
+              ]
+            ]
+          }
+        },
+        "investment": {
+          "n": 800,
+          "expected_cost": 0.025,
+          "wrongful_close_rate": 0.0025,
+          "wrongful_closes": 2,
+          "confusion": {
+            "labels": [
+              "CLOSE",
+              "RFI",
+              "ESCALATE"
+            ],
+            "counts": [
+              [
+                256,
+                0,
+                0
+              ],
+              [
+                2,
+                281,
+                0
+              ],
+              [
+                0,
+                0,
+                261
               ]
             ]
           }
         },
         "payments_fx": {
           "n": 801,
-          "expected_cost": 0.0474,
-          "wrongful_close_rate": 0.0012,
+          "expected_cost": 0.0574,
+          "wrongful_close_rate": 0.0025,
+          "wrongful_closes": 2,
+          "confusion": {
+            "labels": [
+              "CLOSE",
+              "RFI",
+              "ESCALATE"
+            ],
+            "counts": [
+              [
+                106,
+                2,
+                0
+              ],
+              [
+                1,
+                441,
+                5
+              ],
+              [
+                1,
+                5,
+                240
+              ]
+            ]
+          }
+        }
+      }
+    },
+    "logistic_full": {
+      "n": 3200,
+      "expected_cost": 0.0275,
+      "wrongful_close_rate": 0.0019,
+      "wrongful_closes": 6,
+      "confusion": {
+        "labels": [
+          "CLOSE",
+          "RFI",
+          "ESCALATE"
+        ],
+        "counts": [
+          [
+            900,
+            2,
+            0
+          ],
+          [
+            3,
+            1281,
+            3
+          ],
+          [
+            3,
+            8,
+            1000
+          ]
+        ]
+      },
+      "gap": {
+        "mean_train_expected_cost": 0.0191,
+        "mean_validation_expected_cost": 0.0275
+      },
+      "folds": [
+        {
+          "train_expected_cost": 0.0141,
+          "validation_expected_cost": 0.0156
+        },
+        {
+          "train_expected_cost": 0.0242,
+          "validation_expected_cost": 0.0219
+        },
+        {
+          "train_expected_cost": 0.0203,
+          "validation_expected_cost": 0.025
+        },
+        {
+          "train_expected_cost": 0.0207,
+          "validation_expected_cost": 0.0376
+        },
+        {
+          "train_expected_cost": 0.016,
+          "validation_expected_cost": 0.0375
+        }
+      ],
+      "by_institution": {
+        "bank": {
+          "n": 799,
+          "expected_cost": 0.0,
+          "wrongful_close_rate": 0.0,
+          "wrongful_closes": 0,
+          "confusion": {
+            "labels": [
+              "CLOSE",
+              "RFI",
+              "ESCALATE"
+            ],
+            "counts": [
+              [
+                246,
+                0,
+                0
+              ],
+              [
+                0,
+                321,
+                0
+              ],
+              [
+                0,
+                0,
+                232
+              ]
+            ]
+          }
+        },
+        "emoney": {
+          "n": 800,
+          "expected_cost": 0.0288,
+          "wrongful_close_rate": 0.0025,
+          "wrongful_closes": 2,
+          "confusion": {
+            "labels": [
+              "CLOSE",
+              "RFI",
+              "ESCALATE"
+            ],
+            "counts": [
+              [
+                291,
+                1,
+                0
+              ],
+              [
+                0,
+                236,
+                0
+              ],
+              [
+                2,
+                0,
+                270
+              ]
+            ]
+          }
+        },
+        "investment": {
+          "n": 800,
+          "expected_cost": 0.0175,
+          "wrongful_close_rate": 0.0013,
           "wrongful_closes": 1,
           "confusion": {
             "labels": [
@@ -480,176 +652,28 @@
             ],
             "counts": [
               [
-                250,
-                1,
-                1
-              ],
-              [
-                1,
-                323,
-                4
-              ],
-              [
+                256,
                 0,
-                7,
-                214
-              ]
-            ]
-          }
-        }
-      }
-    },
-    "logistic_full": {
-      "n": 3200,
-      "expected_cost": 0.7841,
-      "wrongful_close_rate": 0.0528,
-      "wrongful_closes": 169,
-      "confusion": {
-        "labels": [
-          "CLOSE",
-          "RFI",
-          "ESCALATE"
-        ],
-        "counts": [
-          [
-            854,
-            101,
-            66
-          ],
-          [
-            153,
-            1104,
-            20
-          ],
-          [
-            16,
-            139,
-            747
-          ]
-        ]
-      },
-      "gap": {
-        "mean_train_expected_cost": 0.7293,
-        "mean_validation_expected_cost": 0.7841
-      },
-      "folds": [
-        {
-          "train_expected_cost": 0.6852,
-          "validation_expected_cost": 0.9266
-        },
-        {
-          "train_expected_cost": 0.7,
-          "validation_expected_cost": 0.7063
-        },
-        {
-          "train_expected_cost": 0.7746,
-          "validation_expected_cost": 0.7578
-        },
-        {
-          "train_expected_cost": 0.7184,
-          "validation_expected_cost": 0.8313
-        },
-        {
-          "train_expected_cost": 0.7684,
-          "validation_expected_cost": 0.6984
-        }
-      ],
-      "by_institution": {
-        "bank": {
-          "n": 799,
-          "expected_cost": 0.3292,
-          "wrongful_close_rate": 0.0175,
-          "wrongful_closes": 14,
-          "confusion": {
-            "labels": [
-              "CLOSE",
-              "RFI",
-              "ESCALATE"
-            ],
-            "counts": [
-              [
-                221,
-                25,
                 0
               ],
               [
-                13,
-                304,
-                4
-              ],
-              [
                 1,
-                20,
-                211
-              ]
-            ]
-          }
-        },
-        "emoney": {
-          "n": 800,
-          "expected_cost": 1.2563,
-          "wrongful_close_rate": 0.1025,
-          "wrongful_closes": 82,
-          "confusion": {
-            "labels": [
-              "CLOSE",
-              "RFI",
-              "ESCALATE"
-            ],
-            "counts": [
-              [
-                186,
-                8,
-                37
-              ],
-              [
-                82,
-                258,
+                282,
                 0
               ],
               [
                 0,
-                25,
-                204
-              ]
-            ]
-          }
-        },
-        "investment": {
-          "n": 800,
-          "expected_cost": 0.7037,
-          "wrongful_close_rate": 0.0387,
-          "wrongful_closes": 31,
-          "confusion": {
-            "labels": [
-              "CLOSE",
-              "RFI",
-              "ESCALATE"
-            ],
-            "counts": [
-              [
-                257,
-                35,
-                0
-              ],
-              [
-                25,
-                250,
-                13
-              ],
-              [
-                6,
-                61,
-                153
+                2,
+                259
               ]
             ]
           }
         },
         "payments_fx": {
           "n": 801,
-          "expected_cost": 0.8464,
-          "wrongful_close_rate": 0.0524,
-          "wrongful_closes": 42,
+          "expected_cost": 0.0637,
+          "wrongful_close_rate": 0.0037,
+          "wrongful_closes": 3,
           "confusion": {
             "labels": [
               "CLOSE",
@@ -658,19 +682,19 @@
             ],
             "counts": [
               [
-                190,
-                33,
-                29
+                107,
+                1,
+                0
               ],
               [
-                33,
-                292,
+                2,
+                442,
                 3
               ],
               [
-                9,
-                33,
-                179
+                1,
+                6,
+                239
               ]
             ]
           }
@@ -679,9 +703,9 @@
     },
     "logistic_grouped": {
       "n": 3200,
-      "expected_cost": 1.3019,
-      "wrongful_close_rate": 0.0878,
-      "wrongful_closes": 281,
+      "expected_cost": 0.9956,
+      "wrongful_close_rate": 0.0603,
+      "wrongful_closes": 193,
       "confusion": {
         "labels": [
           "CLOSE",
@@ -690,35 +714,35 @@
         ],
         "counts": [
           [
-            831,
-            154,
-            36
+            756,
+            45,
+            101
           ],
           [
-            211,
-            971,
-            95
+            105,
+            996,
+            186
           ],
           [
-            70,
-            298,
-            534
+            88,
+            223,
+            700
           ]
         ]
       },
       "gap": {
-        "mean_train_expected_cost": 1.2821,
-        "mean_validation_expected_cost": 1.3019
+        "mean_train_expected_cost": 0.9535,
+        "mean_validation_expected_cost": 0.9957
       }
     }
   },
-  "inner_winner": "lightgbm_full",
+  "inner_winner": "lightgbm_ablated",
   "leave_one_institution_out": {
     "bank": {
       "n": 799,
-      "expected_cost": 0.6733,
-      "wrongful_close_rate": 0.0363,
-      "wrongful_closes": 29,
+      "expected_cost": 0.8298,
+      "wrongful_close_rate": 0.0513,
+      "wrongful_closes": 41,
       "confusion": {
         "labels": [
           "CLOSE",
@@ -727,28 +751,28 @@
         ],
         "counts": [
           [
-            198,
-            47,
-            1
+            219,
+            27,
+            0
           ],
           [
-            1,
-            286,
-            34
+            37,
+            225,
+            59
           ],
           [
-            28,
-            18,
-            186
+            4,
+            27,
+            201
           ]
         ]
       }
     },
     "emoney": {
       "n": 800,
-      "expected_cost": 0.9125,
-      "wrongful_close_rate": 0.0788,
-      "wrongful_closes": 63,
+      "expected_cost": 0.1963,
+      "wrongful_close_rate": 0.0,
+      "wrongful_closes": 0,
       "confusion": {
         "labels": [
           "CLOSE",
@@ -757,28 +781,28 @@
         ],
         "counts": [
           [
-            231,
-            0,
+            245,
+            47,
             0
           ],
           [
-            63,
+            0,
             235,
-            42
+            1
           ],
           [
             0,
-            8,
-            221
+            7,
+            265
           ]
         ]
       }
     },
     "investment": {
       "n": 800,
-      "expected_cost": 1.3188,
-      "wrongful_close_rate": 0.0788,
-      "wrongful_closes": 63,
+      "expected_cost": 1.9825,
+      "wrongful_close_rate": 0.1462,
+      "wrongful_closes": 117,
       "confusion": {
         "labels": [
           "CLOSE",
@@ -787,28 +811,28 @@
         ],
         "counts": [
           [
-            217,
-            75,
+            186,
+            57,
+            13
+          ],
+          [
+            117,
+            166,
             0
           ],
           [
-            63,
-            210,
-            15
-          ],
-          [
             0,
-            85,
-            135
+            103,
+            158
           ]
         ]
       }
     },
     "payments_fx": {
       "n": 801,
-      "expected_cost": 2.8514,
-      "wrongful_close_rate": 0.2422,
-      "wrongful_closes": 194,
+      "expected_cost": 2.7216,
+      "wrongful_close_rate": 0.2172,
+      "wrongful_closes": 174,
       "confusion": {
         "labels": [
           "CLOSE",
@@ -817,19 +841,19 @@
         ],
         "counts": [
           [
-            198,
-            25,
+            32,
+            47,
             29
           ],
           [
-            111,
-            154,
-            63
+            104,
+            276,
+            67
           ],
           [
-            83,
-            28,
-            110
+            70,
+            39,
+            137
           ]
         ]
       }
@@ -838,42 +862,47 @@
   "group_ablation": [
     {
       "group": "evidence_coverage",
-      "validation_cost_increase": 2.0794,
-      "earns_place": true
-    },
-    {
-      "group": "geography_risk",
-      "validation_cost_increase": 0.8553,
+      "validation_cost_increase": 1.1528,
       "earns_place": true
     },
     {
       "group": "flow_pattern",
-      "validation_cost_increase": 0.7706,
+      "validation_cost_increase": 0.9044,
       "earns_place": true
     },
     {
       "group": "list_agreement",
-      "validation_cost_increase": 0.56,
+      "validation_cost_increase": 0.5334,
       "earns_place": true
     },
     {
-      "group": "profile_deviation",
-      "validation_cost_increase": 0.4172,
+      "group": "geography_risk",
+      "validation_cost_increase": 0.4932,
       "earns_place": true
     },
     {
       "group": "identity_match",
-      "validation_cost_increase": 0.2628,
+      "validation_cost_increase": 0.0734,
+      "earns_place": true
+    },
+    {
+      "group": "profile_deviation",
+      "validation_cost_increase": 0.04,
       "earns_place": true
     },
     {
       "group": "amount_match",
-      "validation_cost_increase": 0.0038,
+      "validation_cost_increase": 0.0388,
       "earns_place": true
     },
     {
-      "group": "held_payment",
-      "validation_cost_increase": 0.0019,
+      "group": "customer",
+      "validation_cost_increase": 0.0013,
+      "earns_place": false
+    },
+    {
+      "group": "prior_review",
+      "validation_cost_increase": 0.0006,
       "earns_place": false
     },
     {
@@ -882,49 +911,122 @@
       "earns_place": false
     },
     {
-      "group": "prior_review",
-      "validation_cost_increase": -0.0003,
+      "group": "held_payment",
+      "validation_cost_increase": 0.0,
       "earns_place": false
     }
   ],
   "learning_curve": [
     {
       "train_fraction": 0.25,
-      "train_expected_cost": 0.0203,
-      "validation_expected_cost": 0.1562
+      "train_expected_cost": 0.0,
+      "validation_expected_cost": 0.0234
     },
     {
       "train_fraction": 0.5,
-      "train_expected_cost": 0.0078,
-      "validation_expected_cost": 0.0422
+      "train_expected_cost": 0.0,
+      "validation_expected_cost": 0.0172
     },
     {
       "train_fraction": 0.75,
-      "train_expected_cost": 0.0063,
-      "validation_expected_cost": 0.0469
+      "train_expected_cost": 0.0,
+      "validation_expected_cost": 0.0078
     },
     {
       "train_fraction": 1.0,
-      "train_expected_cost": 0.0047,
-      "validation_expected_cost": 0.0484
+      "train_expected_cost": 0.0008,
+      "validation_expected_cost": 0.0078
     }
   ],
   "calibration": {
     "method": "isotonic, fit on the first half of out-of-fold rows, one map per class",
-    "brier_close_before": 0.0009,
-    "brier_close_after": 0.0008
+    "brier_close_before": 0.0008,
+    "brier_close_after": 0.0007,
+    "raw_expected_cost": 0.0094,
+    "isotonic_expected_cost": 0.0084,
+    "used": "raw",
+    "note": "Isotonic calibration does not beat the raw probabilities by more than the spread of the folds, so the desk uses the raw probabilities."
+  },
+  "review": {
+    "raw_features": 48,
+    "model_features": 42,
+    "dropped_groups": [
+      "customer",
+      "account_history",
+      "list_agreement"
+    ],
+    "folds": "5-fold StratifiedGroupKFold by customer, with a 20% grouped hold-out not used for tuning.",
+    "models": {
+      "lightgbm": {
+        "cost_mean": 0.0125,
+        "cost_std": 0.0069,
+        "agreement_mean": 0.9966,
+        "agreement_std": 0.0012
+      },
+      "lightgbm_ablated": {
+        "cost_mean": 0.0094,
+        "cost_std": 0.0088,
+        "agreement_mean": 0.9969,
+        "agreement_std": 0.0017
+      },
+      "xgboost": {
+        "cost_mean": 0.0288,
+        "cost_std": 0.0119,
+        "agreement_mean": 0.9947,
+        "agreement_std": 0.0016
+      },
+      "extra_trees": {
+        "cost_mean": 0.0066,
+        "cost_std": 0.0021,
+        "agreement_mean": 0.9969,
+        "agreement_std": 0.001
+      },
+      "stack": {
+        "cost_mean": 0.0091,
+        "cost_std": 0.0066,
+        "agreement_mean": 0.9969,
+        "agreement_std": 0.001,
+        "better_than_best_single": false
+      },
+      "logistic": {
+        "cost_mean": 0.0275,
+        "cost_std": 0.0087,
+        "agreement_mean": 0.9941,
+        "agreement_std": 0.0006
+      }
+    },
+    "preferred": "lightgbm_ablated",
+    "held_out": {
+      "expected_cost": 0.0075,
+      "agreement": 0.9962,
+      "wrongful_closes": 0
+    },
+    "leave_one_institution_out": {
+      "bank": 0.8298,
+      "emoney": 0.1963,
+      "investment": 1.9825,
+      "payments_fx": 2.7216
+    },
+    "reason_code": {
+      "agreement_mean": 0.9972,
+      "agreement_std": 0.0006
+    },
+    "label_noise": {
+      "flip_5": 0.0384,
+      "flip_10": 0.0453
+    }
   },
   "frozen_close_threshold": {
-    "threshold": 0.7,
-    "expected_cost": 0.04,
-    "wrongful_close_rate": 0.0
+    "threshold": 0.95,
+    "expected_cost": 0.0144,
+    "wrongful_close_rate": 0.0006
   },
   "test_once": {
-    "model": "lightgbm_full",
+    "model": "lightgbm_ablated",
     "n": 800,
-    "expected_cost": 0.0375,
-    "wrongful_close_rate": 0.0013,
-    "wrongful_closes": 1,
+    "expected_cost": 0.0075,
+    "wrongful_close_rate": 0.0,
+    "wrongful_closes": 0,
     "confusion": {
       "labels": [
         "CLOSE",
@@ -933,28 +1035,28 @@
       ],
       "counts": [
         [
-          254,
+          225,
           0,
           0
         ],
         [
-          1,
-          313,
-          7
+          0,
+          322,
+          0
         ],
         [
           0,
           3,
-          222
+          250
         ]
       ]
     },
-    "train_expected_cost": 0.0056,
-    "validation_gap": 0.0319,
+    "train_expected_cost": 0.0006,
+    "validation_gap": 0.0069,
     "policy_expected_cost": 0.0
   },
   "n_cases": 4000,
-  "n_atomic_features": 26,
+  "n_atomic_features": 48,
   "outer_folds": 5,
   "link_features": {
     "features": [
@@ -963,10 +1065,10 @@
       "shared_counterparty_degree"
     ],
     "outer_folds": 5,
-    "leakage": "Each validation fold sees links only from the other training folds. Counterparties shared by more than 30 training cases are ignored. Device ids come from device exports, which are not labels.",
-    "expected_cost_without": 0.0369,
-    "expected_cost_with": 0.0397,
-    "wrongful_close_with": 0.0003,
+    "leakage": "Each validation fold sees links only from the other training folds.Counterparties shared by more than 30 training cases are ignored. Device ids come from device exports, which are not labels.",
+    "expected_cost_without": 0.0125,
+    "expected_cost_with": 0.0122,
+    "wrongful_close_with": 0.0006,
     "kept": false,
     "note": "Linked-case features did not lower out-of-fold expected cost by at least 0.005, so the shipped score does not use them."
   }

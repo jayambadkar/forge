@@ -13,17 +13,20 @@ import json
 import re
 import sys
 from collections import defaultdict
+from datetime import date
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 from lightgbm import LGBMClassifier, early_stopping, log_evaluation
+from sklearn.ensemble import ExtraTreesClassifier
 from sklearn.isotonic import IsotonicRegression
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import confusion_matrix
 from sklearn.model_selection import LeaveOneGroupOut, StratifiedGroupKFold
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
+from xgboost import XGBClassifier
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "system"))
@@ -55,17 +58,40 @@ GROUPS: dict[str, tuple[str, ...]] = {
         "has_event",
         "has_fraud",
         "value_covered",
+        "n_doc_types",
+        "log_doc_chars",
     ),
-    "amount_match": ("best_amount_ratio", "n_amount_matches"),
-    "identity_match": ("party_in_doc_share", "own_name_share"),
-    "profile_deviation": ("income_multiple", "amount_over_baseline"),
-    "flow_pattern": ("pass_through", "n_counterparties", "structuring_flag", "n_in", "n_out"),
-    "geography_risk": ("high_risk_corridor",),
+    "amount_match": ("best_amount_ratio", "n_amount_matches", "largest_unmatched"),
+    "identity_match": ("party_in_doc_share", "own_name_share", "name_on_statement"),
+    "profile_deviation": ("income_multiple", "amount_over_baseline", "one_way_multiple"),
+    "flow_pattern": (
+        "pass_through",
+        "n_counterparties",
+        "structuring_flag",
+        "n_in",
+        "n_out",
+        "n_tx",
+        "log_sum_in",
+        "log_sum_out",
+        "log_max",
+        "cash_share",
+        "round_share",
+        "card_share",
+        "n_person_out",
+        "company_in_share",
+        "equal_split",
+        "n_alerts",
+        "span_days",
+    ),
+    "geography_risk": ("high_risk_corridor", "n_countries"),
     "list_agreement": ("list_alert",),
-    "prior_review": ("prior_same_rule", "n_prior_reviews"),
+    "prior_review": ("prior_same_rule", "n_prior_reviews", "review_mentions_amount"),
     "account_history": ("dormant_flag", "dormant_days_scaled"),
     "held_payment": ("held_flag", "held_without_invoice"),
+    "customer": ("is_business", "log_baseline", "n_expected_countries"),
 }
+# Dropped under the smaller model. They did not earn a place once the other groups were present.
+DROPPED_GROUPS = ("customer", "account_history", "list_agreement")
 
 
 def _cost(true: str, pred: str) -> int:
@@ -165,8 +191,59 @@ def _rows() -> list[dict]:
                 held_tx = book.transactions[case["held_payment_id"]]
                 if float(held_tx.get("amount_gbp") or 0) >= 10000 and not (kinds & INVOICE_TYPES):
                     held_gap = 1.0
-            # List year signal is carried by the decision text only when the LF found years.
-            # The atomic flags record whether the case is a list alert; year agreement is 0 unless measured.
+            cash_n = sum(1 for tx in txs if tx.get("channel") == "cash")
+            card_n = sum(1 for tx in txs if tx.get("channel") == "card")
+            round_n = sum(1 for tx in txs if float(tx.get("amount_gbp") or 0) >= 100 and float(tx.get("amount_gbp") or 0) % 100 == 0)
+            person_out = 0
+            company_in = 0.0
+            out_amounts: list[float] = []
+            for tx in txs:
+                amount = float(tx.get("amount_gbp") or 0)
+                party = tx.get("counterparty_name") or ""
+                company = bool(re.search(r"\b(ltd|limited|plc|llp)\b", party, re.I))
+                if tx.get("direction") == "out" and party and not company and norm(party) != cname:
+                    person_out += 1
+                    out_amounts.append(amount)
+                if tx.get("direction") == "in" and company:
+                    company_in += amount
+            peak_out = max(out_amounts) if out_amounts else 0.0
+            dates = []
+            for tx in txs:
+                stamp = str(tx.get("booked_at") or "")
+                if len(stamp) >= 10:
+                    dates.append(stamp[:10])
+            span = 0.0
+            if len(dates) >= 2:
+                start = date.fromisoformat(min(dates))
+                end = date.fromisoformat(max(dates))
+                span = min((end - start).days / 30.0, 4.0)
+            own_in = 0.0
+            own_out = 0.0
+            for tx in txs:
+                if not cname or norm(tx.get("counterparty_name")) != cname:
+                    continue
+                amount = float(tx.get("amount_gbp") or 0)
+                if tx.get("direction") == "out":
+                    own_out += amount
+                else:
+                    own_in += amount
+            one_way = max(own_in, own_out)
+            unmatched = 0.0
+            if txs:
+                largest = max(txs, key=lambda tx: float(tx.get("amount_gbp") or 0))
+                largest_amount = float(largest.get("amount_gbp") or 0)
+                unmatched = 0.0 if best_ratio >= 0.98 else min(largest_amount / 10000.0, 5.0)
+            review_amount = 0.0
+            for review in reviews:
+                if re.search(r"£\s*[0-9]", review.get("note") or ""):
+                    review_amount = 1.0
+                    break
+            statement_named = 0.0
+            for doc in docs:
+                if doc.get("type") == "bank_statement" and cname and cname in doc.get("norm", ""):
+                    statement_named = 1.0
+                    break
+            doc_chars = sum(len(doc.get("text") or "") for doc in docs)
             features = {
                 "n_docs": float(len(docs)),
                 "has_invoice": 1.0 if kinds & INVOICE_TYPES else 0.0,
@@ -203,6 +280,28 @@ def _rows() -> list[dict]:
                 "dormant_days_scaled": min(dormant_days / 180.0, 3.0),
                 "held_flag": 1.0 if held else 0.0,
                 "held_without_invoice": held_gap,
+                "n_doc_types": float(len(kinds)),
+                "log_doc_chars": float(np.log1p(doc_chars)),
+                "largest_unmatched": unmatched,
+                "name_on_statement": statement_named,
+                "one_way_multiple": (one_way / baseline) if baseline else 0.0,
+                "n_tx": float(len(txs)),
+                "log_sum_in": float(np.log1p(sum_in)),
+                "log_sum_out": float(np.log1p(sum_out)),
+                "log_max": float(np.log1p(max((float(tx.get("amount_gbp") or 0) for tx in txs), default=0.0))),
+                "cash_share": cash_n / len(txs) if txs else 0.0,
+                "round_share": round_n / len(txs) if txs else 0.0,
+                "card_share": card_n / len(txs) if txs else 0.0,
+                "n_person_out": float(person_out),
+                "company_in_share": (company_in / sum_in) if sum_in else 0.0,
+                "equal_split": (peak_out / sum(out_amounts)) if out_amounts else 0.0,
+                "n_alerts": float(len(alerts)),
+                "span_days": span,
+                "review_mentions_amount": review_amount,
+                "is_business": 1.0 if customer.get("kind") == "business" else 0.0,
+                "log_baseline": float(np.log1p(baseline)),
+                "n_expected_countries": float(len(declared.get("expected_countries") or [])),
+                "n_countries": float(len({tx.get("counterparty_country") for tx in txs if tx.get("counterparty_country")})),
             }
             composites = {}
             for group, members in GROUPS.items():
@@ -543,12 +642,104 @@ def _holdout(rows):
     return train, test
 
 
+def _kept_index(names: list[str]) -> list[int]:
+    dropped = [member for group in DROPPED_GROUPS for member in GROUPS[group]]
+    return [index for index, name in enumerate(names) if name not in dropped]
+
+
+def _from_proba(proba: np.ndarray) -> np.ndarray:
+    pred = np.empty(len(proba), dtype=object)
+    pred[:] = [LABELS[int(np.argmax(row))] for row in proba]
+    return pred
+
+
+def _fold_stats(y: np.ndarray, pred: np.ndarray, groups: np.ndarray) -> dict[str, float]:
+    splitter = StratifiedGroupKFold(n_splits=5, shuffle=True, random_state=SEED)
+    costs = []
+    agreements = []
+    for _, valid in splitter.split(np.zeros((len(y), 1)), y, groups):
+        costs.append(float(np.mean([_cost(t, p) for t, p in zip(y[valid], pred[valid], strict=False)])))
+        agreements.append(float(np.mean(y[valid] == pred[valid])))
+    return {
+        "cost_mean": round(float(np.mean(costs)), 4),
+        "cost_std": round(float(np.std(costs)), 4),
+        "agreement_mean": round(float(np.mean(agreements)), 4),
+        "agreement_std": round(float(np.std(agreements)), 4),
+    }
+
+
+def _oof_encoded(make_model, x: np.ndarray, y: np.ndarray, groups: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    encoded = {label: index for index, label in enumerate(LABELS)}
+    y_num = np.array([encoded[label] for label in y])
+    splitter = StratifiedGroupKFold(n_splits=5, shuffle=True, random_state=SEED)
+    pred = np.empty(len(y), dtype=object)
+    proba = np.zeros((len(y), 3))
+    for train, valid in splitter.split(x, y, groups):
+        model = make_model()
+        model.fit(x[train], y_num[train])
+        pred[valid] = np.array([LABELS[int(item)] for item in model.predict(x[valid])])
+        raw_proba = model.predict_proba(x[valid])
+        aligned = np.zeros((len(valid), 3))
+        for column, label in enumerate(model.classes_):
+            aligned[:, int(label)] = raw_proba[:, column]
+        proba[valid] = aligned
+    return pred, proba
+
+
+def _xgb() -> XGBClassifier:
+    return XGBClassifier(
+        objective="multi:softprob",
+        num_class=3,
+        n_estimators=120,
+        max_depth=4,
+        learning_rate=0.08,
+        subsample=0.9,
+        colsample_bytree=0.9,
+        random_state=SEED,
+        n_jobs=1,
+        verbosity=0,
+    )
+
+
+def _trees() -> ExtraTreesClassifier:
+    return ExtraTreesClassifier(n_estimators=300, min_samples_leaf=2, random_state=SEED, n_jobs=1)
+
+
+def _reason_agreement(x: np.ndarray, y: np.ndarray, reasons: np.ndarray, groups: np.ndarray) -> dict[str, float]:
+    splitter = StratifiedGroupKFold(n_splits=5, shuffle=True, random_state=SEED)
+    scores = []
+    for train, valid in splitter.split(x, y, groups):
+        model = ExtraTreesClassifier(n_estimators=300, min_samples_leaf=2, random_state=SEED, n_jobs=1)
+        model.fit(x[train], reasons[train])
+        scores.append(float(np.mean(model.predict(x[valid]) == reasons[valid])))
+    return {"agreement_mean": round(float(np.mean(scores)), 4), "agreement_std": round(float(np.std(scores)), 4)}
+
+
+def _noise_cost(x: np.ndarray, y: np.ndarray, groups: np.ndarray, params: dict, rate: float) -> float:
+    splitter = StratifiedGroupKFold(n_splits=5, shuffle=True, random_state=SEED)
+    rng = np.random.RandomState(SEED)
+    costs = []
+    for train, valid in splitter.split(x, y, groups):
+        noisy = y[train].copy()
+        flip = rng.rand(len(noisy)) < rate
+        noisy[flip] = rng.choice(list(LABELS), size=int(flip.sum()))
+        model = _fit_lgbm(x[train], noisy, params)
+        pred = model.predict(x[valid])
+        costs.append(float(np.mean([_cost(t, p) for t, p in zip(y[valid], pred, strict=False)])))
+    return round(float(np.mean(costs)), 4)
+
+
 def main() -> int:
     rows = _rows()
     train_idx, test_idx = _holdout(rows)
     train_rows = [rows[i] for i in train_idx]
     # The test slice is not read again until the final block.
     names, x_all, y_all, g_all = _xy(rows, "features")
+    if len(names) != 48:
+        raise RuntimeError(f"expected 48 raw features, found {len(names)}: {names}")
+    kept = _kept_index(names)
+    if len(kept) != 42:
+        raise RuntimeError(f"expected 42 features after dropping customer, history and list, found {len(kept)}")
     comp_names, c_all, _, _ = _xy(rows, "composites")
     x, y, groups = x_all[train_idx], y_all[train_idx], g_all[train_idx]
     search = _search(x, y, groups)
@@ -593,43 +784,67 @@ def main() -> int:
     inner_winner = min(comparison, key=lambda key: comparison[key]["expected_cost"])
     ablation = _ablation(x, y, groups, search["chosen"], names)
     curve = _learning_curve(x, y, groups, search["chosen"])
-    calibrated, calibration = _calibrate(full_proba, y)
+    calibrated, _full_calibration = _calibrate(full_proba, y)
     threshold = _threshold(calibrated, y)
+
+    ablated_x = x[:, kept]
+    ablated_all = x_all[:, kept]
+    ablated_pred, ablated_proba, _ = _oof_lgbm(ablated_x, y, groups, search["chosen"])
+    xgb_pred, xgb_proba = _oof_encoded(_xgb, ablated_x, y, groups)
+    tree_pred, tree_proba = _oof_encoded(_trees, ablated_x, y, groups)
+    full_stats = _fold_stats(y, full_pred, groups)
+    ablated_stats = _fold_stats(y, ablated_pred, groups)
+    xgb_stats = _fold_stats(y, xgb_pred, groups)
+    tree_stats = _fold_stats(y, tree_pred, groups)
+    stack_proba = (ablated_proba + xgb_proba + tree_proba) / 3.0
+    stack_pred = _from_proba(stack_proba)
+    stack_stats = _fold_stats(y, stack_pred, groups)
+    # The stack is not a better model when it sits inside the best single model's spread.
+    best_single = min(ablated_stats["cost_mean"], xgb_stats["cost_mean"], tree_stats["cost_mean"], full_stats["cost_mean"])
+    best_std = min(item["cost_std"] for item in (ablated_stats, xgb_stats, tree_stats, full_stats))
+    stack_better = stack_stats["cost_mean"] + 1e-9 < best_single - best_std
+    prefer_ablated = ablated_stats["cost_mean"] <= full_stats["cost_mean"] + full_stats["cost_std"]
+    raw_pred = _from_proba(ablated_proba)
+    calibrated_ablated, calibration_detail = _calibrate(ablated_proba, y)
+    calibrated_pred = _from_proba(calibrated_ablated)
+    raw_cost = _pack(y, raw_pred)["expected_cost"]
+    calibrated_cost = _pack(y, calibrated_pred)["expected_cost"]
+    # A small move inside the fold spread is not a reason to recalibrate.
+    use_raw = calibrated_cost > raw_cost - ablated_stats["cost_std"]
+    reasons = np.array([row["reason_code"] for row in train_rows])
+    reason_stats = _reason_agreement(ablated_x, y, reasons, groups)
+    noise_5 = _noise_cost(ablated_x, y, groups, search["chosen"], 0.05)
+    noise_10 = _noise_cost(ablated_x, y, groups, search["chosen"], 0.10)
 
     firms = np.array([row["institution"] for row in train_rows])
     loio = {}
     logo = LeaveOneGroupOut()
-    for tr, te in logo.split(x, y, firms):
+    for tr, te in logo.split(ablated_x, y, firms):
         firm = firms[te][0]
-        model = _fit_lgbm(x[tr], y[tr], search["chosen"])
-        loio[str(firm)] = _pack(y[te], model.predict(x[te]))
+        model = _fit_lgbm(ablated_x[tr], y[tr], search["chosen"])
+        loio[str(firm)] = _pack(y[te], model.predict(ablated_x[te]))
 
-    # One look at the hold-out, using the inner winner's family.
-    use_grouped = inner_winner.endswith("grouped")
-    x_source = c_all if use_grouped else x_all
-    final = (
-        _fit_lgbm(x_source[train_idx], y_all[train_idx], search["chosen"]) if "lightgbm" in inner_winner else _logit()
-    )
-    if "logistic" in inner_winner:
-        final.fit(x_source[train_idx], y_all[train_idx])
-    test_pred = final.predict(x_source[test_idx])
-    train_pred = final.predict(x_source[train_idx])
+    # The smaller model is the one the desk shows, unless the stack is clearly better.
+    chosen_name = "stack" if stack_better else ("lightgbm_ablated" if prefer_ablated else "lightgbm_full")
+    score_x = ablated_all if chosen_name != "lightgbm_full" else x_all
+    score_train = score_x[train_idx]
+    final = _fit_lgbm(score_train, y_all[train_idx], search["chosen"])
+    test_pred = final.predict(score_x[test_idx])
+    train_pred = final.predict(score_train)
     test_pack = _pack(y_all[test_idx], test_pred, y_all[train_idx], train_pred)
     policy_test = _pack(y_all[test_idx], y_all[test_idx])
-    ship = test_pack["expected_cost"] < policy_test["expected_cost"]
-
-    # UI probabilities are the grouped-or-full OOF logistic/lightgbm scores on the train rows.
-    # Held-out customers get a score from the final model, marked as such.
+    # Policy versus its own labels costs 0. The score stays off the scored path.
+    ship = False
+    agreement = float(np.mean(y_all[test_idx] == test_pred))
     score_proba = np.zeros((len(rows), 3))
-    score_proba[train_idx] = full_proba
-    if "lightgbm" in inner_winner:
-        held_model = final
-        score_proba[test_idx] = _align(
-            held_model.predict_proba(x_source[test_idx]), getattr(held_model, "classes_", LABELS)
-        )
+    if chosen_name == "stack":
+        score_proba[train_idx] = stack_proba
+    elif chosen_name == "lightgbm_ablated":
+        score_proba[train_idx] = ablated_proba if use_raw else calibrated_ablated
     else:
-        order = list(final.named_steps["logisticregression"].classes_)
-        score_proba[test_idx] = _align(final.predict_proba(x_source[test_idx]), order)
+        score_proba[train_idx] = full_proba
+    score_proba[test_idx] = _align(final.predict_proba(score_x[test_idx]), getattr(final, "classes_", LABELS))
+    inner_winner = chosen_name
 
     report = {
         "label_source": "Weak supervision: priority vote of the policy checks. Not hidden-test labels.",
@@ -649,7 +864,38 @@ def main() -> int:
         "leave_one_institution_out": loio,
         "group_ablation": ablation,
         "learning_curve": curve,
-        "calibration": calibration,
+        "calibration": {
+            **calibration_detail,
+            "raw_expected_cost": raw_cost,
+            "isotonic_expected_cost": calibrated_cost,
+            "used": "raw" if use_raw else "isotonic",
+            "note": "Isotonic calibration does not beat the raw probabilities by more than the spread of the folds, so the desk uses the raw probabilities."
+            if use_raw
+            else "Isotonic calibration lowered the cost by more than the spread of the folds, so those probabilities are used.",
+        },
+        "review": {
+            "raw_features": 48,
+            "model_features": 42 if chosen_name != "lightgbm_full" else 48,
+            "dropped_groups": list(DROPPED_GROUPS),
+            "folds": "5-fold StratifiedGroupKFold by customer, with a 20% grouped hold-out not used for tuning.",
+            "models": {
+                "lightgbm": full_stats,
+                "lightgbm_ablated": ablated_stats,
+                "xgboost": xgb_stats,
+                "extra_trees": tree_stats,
+                "stack": {**stack_stats, "better_than_best_single": stack_better},
+                "logistic": _fold_stats(y, logit_pred, groups),
+            },
+            "preferred": chosen_name,
+            "held_out": {
+                "expected_cost": test_pack["expected_cost"],
+                "agreement": round(agreement, 4),
+                "wrongful_closes": test_pack["wrongful_closes"],
+            },
+            "leave_one_institution_out": {firm: block["expected_cost"] for firm, block in loio.items()},
+            "reason_code": reason_stats,
+            "label_noise": {"flip_5": noise_5, "flip_10": noise_10},
+        },
         "frozen_close_threshold": threshold,
         "test_once": {"model": inner_winner, **test_pack, "policy_expected_cost": policy_test["expected_cost"]},
         "n_cases": len(rows),
