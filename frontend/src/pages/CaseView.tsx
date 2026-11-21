@@ -65,6 +65,7 @@ export function CaseView() {
   if (!data) return <p>Loading the case…</p>;
 
   const doc = data.evidence.find((item) => item.id === selected) ?? data.evidence[0];
+  const citedDocs = data.evidence.filter((item) => item.cited).length;
   const timeline = showAll ? data.timeline : data.timeline.filter((txn) => txn.inAlert);
   const maxAmount = Math.max(1, ...timeline.map((txn) => txn.amount));
   const tone = (data.decision?.verdict || "escalate").toLowerCase();
@@ -317,8 +318,8 @@ export function CaseView() {
         <summary>
           Evidence{" "}
           <span>
-            {data.evidence.length} documents
-            {data.decision?.evidence.length ? `, ${data.decision.evidence.length} cited` : ""}
+            {plural(data.evidence.length, "document")}
+            {citedDocs ? `, ${citedDocs} cited` : ""}
           </span>
         </summary>
         <div className="fold-body">
@@ -346,7 +347,11 @@ export function CaseView() {
                 <article className={doc.cited ? "panel cited" : "panel"}>
                   <p className="caption">{doc.cited ? "Cited" : "On file"}</p>
                   <h2 style={{ fontSize: 24 }}>{doc.title || doc.id}</h2>
-                  <Markdown text={doc.text || "This document has no extracted text."} />
+                  <Markdown
+                    text={
+                      withoutTitle(doc.text, doc.title) || "This document has no extracted text."
+                    }
+                  />
                 </article>
               ) : null}
             </div>
@@ -416,7 +421,7 @@ export function CaseView() {
 
       <details className="fold" open={expand}>
         <summary>
-          Audit trail <span>{data.trail.length} events</span>
+          Audit trail <span>{plural(data.trail.length, "event")}</span>
         </summary>
         <div className="fold-body">
           {data.trail.length === 0 ? (
@@ -473,4 +478,13 @@ function secondCheck(
   const best = ranked.reduce((left, right) => (right[1] > left[1] ? right : left));
   if (best[1] <= 0 || best[0] === verdict) return null;
   return `Second check disagrees: model expects ${best[0]}.`;
+}
+
+function plural(count: number, noun: string): string {
+  return `${count.toLocaleString("en-GB")} ${noun}${count === 1 ? "" : "s"}`;
+}
+
+function withoutTitle(text: string, title: string): string {
+  const [first, ...rest] = text.split("\n");
+  return first.replace(/^#\s+/, "").trim() === title.trim() ? rest.join("\n").trimStart() : text;
 }

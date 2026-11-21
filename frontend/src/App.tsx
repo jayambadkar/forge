@@ -1,4 +1,4 @@
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Link, Route, Routes } from "react-router-dom";
 import { Shell } from "./components/Shell";
 import { AuditLog } from "./pages/AuditLog";
 import { CaseView } from "./pages/CaseView";
@@ -21,8 +21,20 @@ export default function App() {
           <Route path="docs" element={<How />} />
           <Route path="models" element={<How />} />
           <Route path="audit" element={<AuditLog />} />
+          <Route path="*" element={<NotFound />} />
         </Route>
       </Routes>
     </BrowserRouter>
+  );
+}
+
+function NotFound() {
+  return (
+    <>
+      <h1>Page not found</h1>
+      <p>
+        <Link to="/">Open the case queue</Link>
+      </p>
+    </>
   );
 }

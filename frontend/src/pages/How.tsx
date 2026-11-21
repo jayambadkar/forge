@@ -13,6 +13,7 @@ type FoldStat = { cost_mean: number; cost_std: number; agreement_mean?: number }
 type Review = {
   raw_features: number;
   model_features: number;
+  desk_features?: number;
   dropped_groups: string[];
   folds: string;
   models: Record<string, FoldStat & { better_than_best_single?: boolean }>;
@@ -236,7 +237,7 @@ function ReviewProse({ review, calibration }: { review: Review; calibration?: st
         {review.preferred === "two_stage" ? (
           <>
             {" "}
-            The desk uses a two-stage model on {review.model_features} facts that read the same at
+            The desk uses a two-stage model on {review.desk_features} facts that read the same at
             every firm. It costs {band(model.two_stage)}.
           </>
         ) : (
