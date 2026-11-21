@@ -1,10 +1,14 @@
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
+import { ModelDiagram } from "../components/ModelDiagram";
 
 type Summary = {
   expected_cost: number;
   wrongful_close_rate: number;
   macro_f1?: number;
   per_class_f1?: Record<string, number>;
+  confusion?: { labels: string[]; counts: number[][] };
+  n?: number;
   gap?: { mean_train_expected_cost: number; mean_validation_expected_cost: number };
 };
 
@@ -84,10 +88,52 @@ export function How() {
       .catch(() => undefined);
   }, []);
 
+  const [params, setParams] = useSearchParams();
+  const tab = params.get("tab") === "model" ? "model" : "overview";
+
+  function choose(next: "overview" | "model") {
+    const nextParams = new URLSearchParams(params);
+    if (next === "model") nextParams.set("tab", "model");
+    else nextParams.delete("tab");
+    setParams(nextParams, { replace: true });
+  }
+
   return (
     <div className="overview how">
       <p className="crumbs">Forge / How it works</p>
       <h1>How Forge works</h1>
+      <div className="how-tabs" role="tablist" aria-label="How it works">
+        <button
+          type="button"
+          role="tab"
+          id="how-tab-overview"
+          aria-selected={tab === "overview"}
+          aria-controls="how-panel"
+          onClick={() => choose("overview")}
+        >
+          Overview
+        </button>
+        <button
+          type="button"
+          role="tab"
+          id="how-tab-model"
+          aria-selected={tab === "model"}
+          aria-controls="how-panel"
+          onClick={() => choose("model")}
+        >
+          Model and accuracy
+        </button>
+      </div>
+      <div id="how-panel" role="tabpanel" aria-labelledby={`how-tab-${tab}`}>
+        {tab === "overview" ? <Overview /> : <ModelTab report={report} />}
+      </div>
+    </div>
+  );
+}
+
+function Overview() {
+  return (
+    <>
       <p className="lede">
         Forge reads one firm’s folder and writes one recommendation per case: close, ask, or
         escalate. That recommendation is what the desk shows and what the submission file contains.
@@ -129,17 +175,65 @@ export function How() {
         the recommendation stands. The reviewer is not allowed to close a case the checks did not
         already close, and <span className="nums">system/run</span> does not call it.
       </p>
+    </>
+  );
+}
 
-      <h2>Checking the recommendation</h2>
-      <p>
-        The labels used for the check are Forge’s own recommendations, not a hidden answer key.
-        Customers are kept together. The check is 5-fold, grouped by customer, with an inner pass
-        for the tree settings and one fifth of customers held out and scored once. A wrong close
-        costs ten. Missing a close costs three. Mixing up an ask and an escalation costs two.
-        Leaving one firm out, and scoring the model on that firm alone, is much worse than scoring a
-        customer the model has not seen at a firm it has seen. The score is not loaded by{" "}
-        <span className="nums">system/run</span>.
+function ModelTab({ report }: { report: Report | null }) {
+  const desk = report?.desk_model;
+  return (
+    <>
+      <p className="lede">
+        The policy engine writes every recommendation. A separate model is trained to reproduce it
+        and runs on the desk as a cross-check.
       </p>
+      <ModelDiagram />
+
+      <h2>What the figures mean</h2>
+      <p>
+        The labels are the policy engine’s own verdicts. There is no hidden answer key. The figures
+        below measure how faithfully a model can reproduce the written rules, and how well that
+        carries over to a firm it has not seen. They do not say whether the rules are right.
+      </p>
+      <p>
+        Validation is 5-fold StratifiedGroupKFold, grouped by customer, so one customer’s cases
+        never sit on both sides of a split. Tree settings are tuned inside each training fold only.
+        Before any of that, 20% of customers are set aside and scored once at the end.
+      </p>
+      <p>
+        To test a firm the model has not seen, it is trained on three firms and scored on the
+        fourth, in turn. The four results are pooled. This is the hardest of the three checks.
+      </p>
+      <p>
+        Errors are weighted by a scoring matrix. A wrong close costs 10, a missed close costs 3, and
+        swapping a request for information with an escalation costs 2. Expected cost is the average
+        per case.
+      </p>
+
+      {desk?.used ? (
+        <>
+          <h2>Headline figures</h2>
+          <div className="kpis">
+            <Tile label="Known firms, out of fold" block={desk.out_of_fold} />
+            <Tile label="Held-out customers" block={desk.test_once} />
+            <Tile label="A firm not seen in training" block={desk.unseen_firm_all} />
+            <article className="kpi escalate">
+              <p className="kpi-label">Wrong closes, unseen firm</p>
+              <p className="kpi-value nums">{percent(desk.unseen_firm_all.wrongful_close_rate)}</p>
+              <p className="kpi-note">
+                Was {percent(desk.unseen_firm_all_previous.wrongful_close_rate)} with the previous
+                model
+              </p>
+            </article>
+          </div>
+          {desk.unseen_firm_all.confusion ? (
+            <Confusion confusion={desk.unseen_firm_all.confusion} />
+          ) : null}
+        </>
+      ) : null}
+
+      {report?.review ? <ModelTable review={report.review} /> : null}
+
       {report?.review ? (
         <ReviewProse review={report.review} calibration={report.calibration?.note} />
       ) : null}
@@ -219,35 +313,140 @@ export function How() {
       ) : (
         <p>The check figures are not loaded yet.</p>
       )}
-    </div>
+    </>
+  );
+}
+
+function accuracy(block: Summary) {
+  const counts = block.confusion?.counts;
+  if (!counts) return undefined;
+  const total = counts.flat().reduce((sum, value) => sum + value, 0);
+  return total ? counts.reduce((sum, row, index) => sum + (row[index] ?? 0), 0) / total : undefined;
+}
+
+function Tile({ label, block }: { label: string; block: Summary }) {
+  return (
+    <article className="kpi">
+      <p className="kpi-label">{label}</p>
+      <p className="kpi-value nums">{percent(accuracy(block))}</p>
+      <p className="kpi-note">
+        Accuracy. Macro-F1 {block.macro_f1?.toFixed(3) ?? "—"}
+        {block.n ? `, ${block.n.toLocaleString("en-GB")} cases` : ""}
+      </p>
+    </article>
+  );
+}
+
+const VERDICTS: Record<string, string> = {
+  CLOSE: "Close",
+  RFI: "Request information",
+  ESCALATE: "Escalate",
+};
+
+function Confusion({ confusion }: { confusion: { labels: string[]; counts: number[][] } }) {
+  return (
+    <>
+      <h2>Unseen firm: policy verdict against model</h2>
+      <p>
+        Each row is the policy engine’s verdict. Each column is what the model chose. Shading shows
+        the share of the row.
+      </p>
+      <div className="table-wrap">
+        <table className="data-table confusion">
+          <thead>
+            <tr>
+              <th scope="col">Policy verdict</th>
+              {confusion.labels.map((label) => (
+                <th key={label} scope="col" className="num">
+                  Model: {VERDICTS[label] ?? label}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {confusion.counts.map((row, rowIndex) => {
+              const total = row.reduce((sum, value) => sum + value, 0) || 1;
+              const label = confusion.labels[rowIndex] ?? "";
+              return (
+                <tr key={label}>
+                  <th scope="row">{VERDICTS[label] ?? label}</th>
+                  {row.map((value, colIndex) => {
+                    const share = value / total;
+                    return (
+                      <td
+                        key={confusion.labels[colIndex]}
+                        className={`num nums${rowIndex === colIndex ? " hit" : ""}`}
+                        style={{ background: `rgba(29, 112, 184, ${(share * 0.55).toFixed(3)})` }}
+                      >
+                        {value.toLocaleString("en-GB")}
+                        <span className="share">{(share * 100).toFixed(1)}%</span>
+                      </td>
+                    );
+                  })}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </>
+  );
+}
+
+const MODEL_NAMES: Record<string, string> = {
+  lightgbm: "Gradient boosting",
+  lightgbm_ablated: "Gradient boosting, fewer facts",
+  two_stage: "Two-stage gradient boosting",
+  xgboost: "XGBoost",
+  extra_trees: "Extra trees",
+  stack: "Stack of tree models",
+  logistic: "Logistic regression",
+};
+
+function ModelTable({ review }: { review: Review }) {
+  return (
+    <>
+      <h2>Models compared</h2>
+      <p>Expected cost on known firms, mean and spread across the 5 folds. Lower is better.</p>
+      <div className="table-wrap">
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th>Model</th>
+              <th className="num">Cost</th>
+              <th className="num">Agreement</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {Object.entries(review.models).map(([name, stat]) => (
+              <tr key={name} className={name === review.preferred ? "in-use" : undefined}>
+                <td>{MODEL_NAMES[name] ?? plainName(name)}</td>
+                <td className="num nums">
+                  {stat.cost_mean.toFixed(3)} ± {stat.cost_std.toFixed(3)}
+                </td>
+                <td className="num nums">{percent(stat.agreement_mean)}</td>
+                <td>{name === review.preferred ? <strong>In use</strong> : ""}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {review.preferred === "two_stage" ? (
+        <p>
+          The two-stage model reads only the {review.desk_features} facts that mean the same at
+          every firm. That matters most on a firm it has not seen, which is why it is the one in
+          use.
+        </p>
+      ) : null}
+    </>
   );
 }
 
 function ReviewProse({ review, calibration }: { review: Review; calibration?: string }) {
-  const model = review.models;
   const firm = review.leave_one_institution_out;
   return (
     <>
-      <p>
-        There are {review.raw_features} raw facts. The smaller model keeps {review.model_features}{" "}
-        of them and drops the customer, history and list groups. Out of fold, gradient boosting
-        costs {band(model.lightgbm)}, XGBoost {band(model.xgboost)}, extra trees{" "}
-        {band(model.extra_trees)}, and logistic regression {band(model.logistic)}. A stack of the
-        tree models costs {band(model.stack)}
-        {model.stack?.better_than_best_single
-          ? ", which is better than the best single model."
-          : ", which is not better once the spread of the folds is taken into account."}{" "}
-        The smaller boosted model costs {band(model.lightgbm_ablated)}.
-        {review.preferred === "two_stage" ? (
-          <>
-            {" "}
-            The desk uses a two-stage model on {review.desk_features} facts that read the same at
-            every firm. It costs {band(model.two_stage)}.
-          </>
-        ) : (
-          " That is the one the desk uses."
-        )}
-      </p>
       <p>
         On the held-out customers the cost is {review.held_out.expected_cost.toFixed(3)}, agreement
         is {(review.held_out.agreement * 100).toFixed(1)}%, and wrongful closes are{" "}
@@ -356,11 +555,6 @@ function UnseenFirm({ desk, previous }: { desk: DeskModel; previous: Record<stri
 
 function percent(rate: number | undefined) {
   return rate === undefined ? "—" : `${(rate * 100).toFixed(1)}%`;
-}
-
-function band(stat: FoldStat | undefined) {
-  if (!stat) return "—";
-  return `${stat.cost_mean.toFixed(3)} plus or minus ${stat.cost_std.toFixed(3)}`;
 }
 
 function plainName(name: string) {

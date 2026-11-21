@@ -329,3 +329,95 @@
     font-size: 28px;
   }
 }
+
+/* How it works tabs */
+.overview .how-tabs {
+  display: flex;
+  gap: var(--space-1);
+  margin: 0 0 var(--space-5);
+  border-bottom: 1px solid var(--border);
+}
+.overview .how-tabs button {
+  margin: 0 0 -1px;
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid transparent;
+  border-bottom: 0;
+  background: var(--light);
+  color: var(--link);
+  font: inherit;
+  font-size: 16px;
+  cursor: pointer;
+}
+.overview .how-tabs button:hover {
+  color: var(--link-hover);
+  text-decoration: underline;
+}
+.overview .how-tabs button[aria-selected="true"] {
+  background: var(--page);
+  border-color: var(--border);
+  border-bottom: 1px solid var(--page);
+  color: var(--text);
+  font-weight: 700;
+}
+.overview .how-tabs button:hover[aria-selected="true"] {
+  text-decoration: none;
+}
+.overview .how-tabs button:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 0;
+  box-shadow: inset 0 -4px 0 var(--black);
+}
+
+/* Model diagram */
+.overview .model-diagram {
+  overflow-x: auto;
+  margin: 0 0 var(--space-5);
+  padding: var(--space-3);
+  background: var(--white);
+  border: 1px solid var(--border);
+}
+.overview .model-diagram svg {
+  display: block;
+  width: 100%;
+  min-width: 720px;
+  height: auto;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+.overview .model-diagram .md-title {
+  font-size: 17px;
+  font-weight: 700;
+  fill: var(--text);
+}
+.overview .model-diagram .md-line {
+  font-size: 15px;
+  fill: var(--text);
+}
+.overview .model-diagram .md-band {
+  font-size: 15px;
+  font-weight: 700;
+  fill: var(--green);
+}
+.overview .model-diagram .md-note {
+  font-size: 15px;
+  fill: var(--secondary);
+}
+.overview.how .kpis {
+  margin-bottom: var(--space-5);
+}
+
+/* Confusion matrix and model table */
+.overview .data-table.confusion th[scope="row"] {
+  text-align: left;
+  font-weight: 700;
+}
+.overview .data-table.confusion td.hit {
+  font-weight: 700;
+}
+.overview .data-table.confusion .share {
+  display: block;
+  font-size: 14px;
+  font-weight: 400;
+}
+.overview .data-table tr.in-use td {
+  background: var(--green-tint);
+}

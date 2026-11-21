@@ -89,8 +89,8 @@ h1.case-title .tag {
 
 /* Recommendation. */
 .decision {
-  padding: var(--space-4) var(--space-5);
-  margin: 0 0 var(--space-3);
+  padding: var(--space-5);
+  margin: 0 0 var(--space-5);
 }
 .decision-head {
   gap: var(--space-3);
@@ -130,8 +130,14 @@ h2.decision-sub {
 
 /* Actions. */
 .case-actions {
-  gap: var(--space-2);
-  margin: 0 0 var(--space-4);
+  gap: var(--space-3);
+  margin: 0 0 var(--space-2);
+}
+.action-help {
+  max-width: 44em;
+  margin: 0 0 var(--space-5);
+  color: var(--secondary);
+  font-size: 16px;
 }
 .toolbar button:disabled {
   opacity: 0.5;
@@ -193,9 +199,17 @@ details.menu form.menu-form {
 .analyst-block {
   background: var(--white);
   border: 1px solid var(--border);
-  padding: var(--space-4) var(--space-5);
-  margin: 0 0 var(--space-5);
+  padding: var(--space-5);
+  margin: 0 0 var(--space-6);
   font-size: 16px;
+}
+.status-help {
+  display: block;
+  margin-top: var(--space-1);
+  color: var(--secondary);
+}
+.analyst-block .status-key {
+  margin-top: var(--space-4);
 }
 .analyst-block .done {
   margin: 0 0 var(--space-3);
@@ -207,7 +221,7 @@ details.menu form.menu-form {
 
 /* Sections. */
 details.fold {
-  margin: 0 0 var(--space-2);
+  margin: 0 0 var(--space-3);
 }
 details.fold > summary {
   display: flex;
@@ -260,7 +274,7 @@ details.fold summary .fold-meta {
   text-align: right;
 }
 .fold-body {
-  padding: var(--space-4);
+  padding: var(--space-5);
   font-size: 16px;
   line-height: 1.5;
 }
@@ -291,8 +305,8 @@ details.fold summary .fold-meta {
   overflow-wrap: anywhere;
 }
 .fold-body .panel {
-  padding: var(--space-4) var(--space-5);
-  margin: 0 0 var(--space-4);
+  padding: var(--space-5);
+  margin: 0 0 var(--space-5);
 }
 .panel-title {
   font-size: 19px;
@@ -534,4 +548,80 @@ details.why ol {
     flex-basis: 100%;
     text-align: left;
   }
+}
+
+/* Evidence chips that jump to the record. */
+button.chip {
+  display: inline-block;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  font: inherit;
+}
+button.chip code {
+  color: var(--link);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+button.chip:hover code {
+  color: var(--link-hover);
+  text-decoration-thickness: 2px;
+}
+code.chip {
+  cursor: help;
+}
+.alert-list .panel:focus,
+.fold-body .timeline li:focus {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* Email draft dialog. */
+.email-dialog {
+  width: min(640px, calc(100vw - 2 * var(--space-4)));
+  padding: var(--space-5);
+  border: 2px solid var(--text);
+  background: var(--white);
+  color: var(--text);
+  font-size: 16px;
+}
+.email-dialog::backdrop {
+  background: rgb(11 12 12 / 50%);
+}
+.email-dialog h2 {
+  margin: 0 0 var(--space-4);
+}
+.email-dialog .facts {
+  margin: 0 0 var(--space-4);
+}
+.email-label {
+  display: block;
+  margin: 0 0 var(--space-1);
+  font-weight: 700;
+}
+.email-dialog textarea {
+  box-sizing: border-box;
+  width: 100%;
+  padding: var(--space-2);
+  border: 2px solid var(--text);
+  font: inherit;
+  line-height: 1.5;
+  resize: vertical;
+}
+.email-error {
+  margin: var(--space-2) 0 0;
+  color: var(--red);
+}
+.email-actions {
+  gap: var(--space-3);
+  margin: var(--space-4) 0 0;
+}
+.email-live {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
 }

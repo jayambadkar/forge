@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { labelFor, percent, reasonLabel, sentences, verdictLabel, when } from "../format";
 import type { AuditEvent } from "../types";
+import { EvidenceChip, type DescribeEvidence } from "./Recommendation";
 import { VerdictPill } from "./Verdict";
 
 const WHO: Record<string, string> = {
@@ -63,7 +64,15 @@ function reviewer(llm: string | undefined) {
   return llm;
 }
 
-export function AuditEntry({ event, showCase = false }: { event: AuditEvent; showCase?: boolean }) {
+type Props = {
+  event: AuditEvent;
+  showCase?: boolean;
+  /** Case data lookup for evidence ids. Without it chips show the id only. */
+  describe?: DescribeEvidence;
+  onSelect?: (id: string) => void;
+};
+
+export function AuditEntry({ event, showCase = false, describe, onSelect }: Props) {
   const who = WHO[event.kind] ?? event.actor;
   const diff = changes(event.before, event.after);
   const why = event.kind === "ai" ? sentences(event.reason) : [];
@@ -103,7 +112,7 @@ export function AuditEntry({ event, showCase = false }: { event: AuditEvent; sho
             {event.evidence?.length ? (
               <span className="chips">
                 {event.evidence.map((id) => (
-                  <code key={id}>{id}</code>
+                  <EvidenceChip key={id} id={id} describe={describe} onSelect={onSelect} />
                 ))}
               </span>
             ) : (

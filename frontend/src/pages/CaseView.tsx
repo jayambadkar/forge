@@ -1,11 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState, type SyntheticEvent } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { act, fetchCase } from "../api";
 import { ExportMenu } from "../components/ExportMenu";
 import { AuditEntry } from "../components/AuditEntry";
 import { CaseNav } from "../components/CaseNav";
 import { Markdown } from "../components/Markdown";
-import { CrossCheck, Recommendation } from "../components/Recommendation";
+import { CrossCheck, Recommendation, evidenceLookup } from "../components/Recommendation";
 import { VerdictPill } from "../components/Verdict";
 import { gbp, labelFor, mailto, openLabel, verdictLabel, when } from "../format";
 import type { CaseDetail } from "../types";
@@ -24,6 +24,9 @@ export function CaseView() {
   const [override, setOverride] = useState("RFI");
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState("");
+  // Folds the analyst has opened or closed; unset folds follow ?expand=1.
+  const [folds, setFolds] = useState<Record<string, boolean>>({});
+  const [jumpTo, setJumpTo] = useState("");
 
   function load() {
     setError("");
@@ -46,6 +49,28 @@ export function CaseView() {
     // load closes over the route params already listed.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [institution, caseId]);
+
+  useEffect(() => {
+    if (!jumpTo) return;
+    const target = document.getElementById(jumpTo);
+    if (target) {
+      target.scrollIntoView({ behavior: "smooth", block: "center" });
+      target.focus({ preventScroll: true });
+    }
+    setJumpTo("");
+  }, [jumpTo]);
+
+  function fold(name: string) {
+    return {
+      open: folds[name] ?? expand,
+      onToggle: (event: SyntheticEvent<HTMLDetailsElement>) => {
+        const isOpen = event.currentTarget.open;
+        setFolds((current) =>
+          current[name] === isOpen ? current : { ...current, [name]: isOpen },
+        );
+      },
+    };
+  }
 
   async function run(action: string, extra?: { verdict?: string; note?: string }) {
     setBusy(true);
@@ -101,10 +126,37 @@ export function CaseView() {
     `Evidence: ${(data.decision?.evidence || []).join(", ") || "none cited"}.`,
     `Amount on the alert lines: ${gbp(alertAmount)}.`,
   ].join("\n");
-  const draft =
+  const email =
     data.decision?.verdict === "ESCALATE"
-      ? mailto("mlro@forge.internal", `Escalation ${data.caseId}`, mlroBody)
-      : mailto("", `Information request ${data.caseId}`, rfiBody);
+      ? {
+          label: "Draft MLRO email",
+          to: "mlro@forge.internal",
+          subject: `Escalation ${data.caseId}`,
+          body: mlroBody,
+        }
+      : {
+          label: "Draft customer email",
+          to: "",
+          subject: `Information request ${data.caseId}`,
+          body: rfiBody,
+        };
+  const describe = evidenceLookup(data);
+  const showEvidence = (id: string) => {
+    const ref = describe(id);
+    if (!ref) return;
+    if (ref.kind === "doc") {
+      setSelected(id);
+      setFolds((current) => ({ ...current, evidence: true }));
+      setJumpTo(`ev-${id}`);
+    } else if (ref.kind === "alert") {
+      setFolds((current) => ({ ...current, alerts: true }));
+      setJumpTo(`alert-${id}`);
+    } else if (ref.kind === "txn") {
+      if (!data.timeline.find((txn) => txn.id === id)?.inAlert) setShowAll(true);
+      setFolds((current) => ({ ...current, transactions: true }));
+      setJumpTo(`txn-${id}`);
+    }
+  };
   const submission = {
     case_id: data.caseId,
     alert_ids: data.alerts.map((alert) => alert.id),
@@ -131,7 +183,7 @@ export function CaseView() {
           {error}
         </div>
       ) : null}
-      <Recommendation data={data} amount={alertAmount} />
+      <Recommendation data={data} amount={alertAmount} onSelect={showEvidence} />
       <p className="meta case-meta">
         {labelFor(institution)} · {openLabel(data.openedAt)} ·{" "}
         <span className="nums">{gbp(alertAmount)}</span>
@@ -143,6 +195,7 @@ export function CaseView() {
           type="button"
           className="primary"
           disabled={busy}
+          title="Agree with Forge's recommendation. Saved to the audit trail under your name."
           onClick={() => {
             void run("accept");
           }}
@@ -150,7 +203,9 @@ export function CaseView() {
           Accept
         </button>
         <details className="menu">
-          <summary>Override</summary>
+          <summary title="Choose a different verdict. You must add a note saying why.">
+            Override
+          </summary>
           <form
             className="menu-form"
             onSubmit={(event) => {
@@ -186,13 +241,16 @@ export function CaseView() {
             </button>
           </form>
         </details>
-        <a className="button-link" href={draft}>
-          {data.decision?.verdict === "ESCALATE" ? "Draft MLRO email" : "Draft customer email"}
-        </a>
+        <EmailDraft {...email} />
       </div>
+      <p className="action-help">
+        Accept records that you agree with Forge's recommendation. Override changes the verdict and
+        needs a note. Both are written to the audit trail. The email button shows a draft you can
+        copy; it does not send anything.
+      </p>
       <AnalystDecision data={data} done={done} />
 
-      <details className="fold" open={expand}>
+      <details className="fold" {...fold("case")}>
         <summary>
           <span className="fold-title">Case file</span>
           <span className="fold-meta">
@@ -236,6 +294,7 @@ export function CaseView() {
             <button
               type="button"
               disabled={busy}
+              title="Make yourself the owner of this case. Status changes to In review."
               onClick={() => {
                 void run("assign");
               }}
@@ -245,6 +304,7 @@ export function CaseView() {
             <button
               type="button"
               disabled={busy}
+              title="Record that you have sent the information request to the customer."
               onClick={() => {
                 void run("rfi");
               }}
@@ -256,7 +316,7 @@ export function CaseView() {
         </div>
       </details>
 
-      <details className="fold" open={expand}>
+      <details className="fold" {...fold("alerts")}>
         <summary>
           <span className="fold-title">Alerts</span>
           <span className="fold-meta">{data.alerts.length}</span>
@@ -267,7 +327,7 @@ export function CaseView() {
           ) : (
             <div className="alert-list">
               {data.alerts.map((alert) => (
-                <article key={alert.id} className="panel">
+                <article key={alert.id} id={`alert-${alert.id}`} className="panel" tabIndex={-1}>
                   <p className="caption nums">
                     {alert.ruleId} · {alert.id}
                   </p>
@@ -280,7 +340,7 @@ export function CaseView() {
         </div>
       </details>
 
-      <details className="fold" open={expand}>
+      <details className="fold" {...fold("transactions")}>
         <summary>
           <span className="fold-title">Transactions</span>
           <span className="fold-meta">
@@ -298,7 +358,7 @@ export function CaseView() {
           ) : (
             <ol className="timeline">
               {timeline.map((txn) => (
-                <li key={txn.id}>
+                <li key={txn.id} id={`txn-${txn.id}`} tabIndex={-1}>
                   <span>{when(txn.timestamp)}</span>
                   <span
                     title={`${txn.counterparty || "No counterparty name"} · ${txn.direction || "—"} · ${txn.channel || "—"}`}
@@ -322,7 +382,7 @@ export function CaseView() {
         </div>
       </details>
 
-      <details className="fold" open={expand}>
+      <details className="fold" {...fold("evidence")}>
         <summary>
           <span className="fold-title">Evidence</span>
           <span className="fold-meta">
@@ -339,6 +399,7 @@ export function CaseView() {
                 {data.evidence.map((item) => (
                   <button
                     key={item.id}
+                    id={`ev-${item.id}`}
                     type="button"
                     aria-current={item.id === doc?.id}
                     onClick={() => setSelected(item.id)}
@@ -367,7 +428,7 @@ export function CaseView() {
         </div>
       </details>
 
-      <details className="fold" open={expand}>
+      <details className="fold" {...fold("linked")}>
         <summary>
           <span className="fold-title">Linked cases</span>
           <span className="fold-meta">{data.related.length}</span>
@@ -393,7 +454,7 @@ export function CaseView() {
         </div>
       </details>
 
-      <details className="fold" open={expand}>
+      <details className="fold" {...fold("crosscheck")}>
         <summary>
           <span className="fold-title">Model cross-check</span>
           <span className="fold-meta">{crossCheckSummary(data)}</span>
@@ -403,7 +464,7 @@ export function CaseView() {
         </div>
       </details>
 
-      <details className="fold" open={expand}>
+      <details className="fold" {...fold("audit")}>
         <summary>
           <span className="fold-title">Audit trail</span>
           <span className="fold-meta">{plural(data.trail.length, "event")}</span>
@@ -414,14 +475,19 @@ export function CaseView() {
           ) : (
             <ol className="audit-list">
               {data.trail.map((event) => (
-                <AuditEntry key={event.id} event={event} />
+                <AuditEntry
+                  key={event.id}
+                  event={event}
+                  describe={describe}
+                  onSelect={showEvidence}
+                />
               ))}
             </ol>
           )}
         </div>
       </details>
 
-      <details className="fold" open={expand}>
+      <details className="fold" {...fold("record")}>
         <summary>
           <span className="fold-title">Record</span>
           <span className="fold-meta">JSON</span>
@@ -441,6 +507,91 @@ const DONE: Record<string, string> = {
   rfi: "Request marked as sent.",
 };
 
+const STATUS_HELP: Record<string, string> = {
+  New: "Nobody has acted on this case yet.",
+  "In review": "An analyst owns this case and is working on it.",
+  "Escalated / MLRO": "Sent to the money laundering reporting officer (MLRO) to decide.",
+  Decided: "An analyst has accepted or overridden the recommendation.",
+};
+
+type Email = { label: string; to: string; subject: string; body: string };
+
+function EmailDraft({ label, to, subject, body }: Email) {
+  const dialog = useRef<HTMLDialogElement>(null);
+  const [copied, setCopied] = useState(false);
+  const [copyError, setCopyError] = useState(false);
+  const timer = useRef<number | undefined>(undefined);
+  useEffect(() => () => window.clearTimeout(timer.current), []);
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(`Subject: ${subject}\n\n${body}`);
+      setCopyError(false);
+      setCopied(true);
+      window.clearTimeout(timer.current);
+      timer.current = window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setCopyError(true);
+    }
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        title="Show a draft email you can copy or open in your mail app. Nothing is sent."
+        onClick={() => dialog.current?.showModal()}
+      >
+        {label}
+      </button>
+      <dialog
+        ref={dialog}
+        className="email-dialog"
+        aria-labelledby="email-dialog-title"
+        onClose={() => setCopied(false)}
+      >
+        <h2 id="email-dialog-title">{label}</h2>
+        <dl className="facts ruled">
+          <dt>To</dt>
+          <dd>{to || "The customer's email address (add it in your mail app)"}</dd>
+          <dt>Subject</dt>
+          <dd>{subject}</dd>
+        </dl>
+        <label htmlFor="email-dialog-body" className="email-label">
+          Body
+        </label>
+        <textarea id="email-dialog-body" readOnly rows={12} value={body} />
+        {copyError ? (
+          <p className="email-error" role="alert">
+            Copy did not work in this browser. Select the text and copy it by hand.
+          </p>
+        ) : null}
+        <div className="toolbar email-actions">
+          <button
+            type="button"
+            className="primary"
+            autoFocus
+            onClick={() => {
+              void copy();
+            }}
+          >
+            {copied ? "Copied" : "Copy email"}
+          </button>
+          <a className="button-link" href={mailto(to, subject, body)}>
+            Open in mail app
+          </a>
+          <button type="button" onClick={() => dialog.current?.close()}>
+            Close
+          </button>
+          <span className="email-live" aria-live="polite">
+            {copied ? "Email copied" : ""}
+          </span>
+        </div>
+      </dialog>
+    </>
+  );
+}
+
 function crossCheckSummary(data: CaseDetail) {
   if (!data.risk || !data.decision) return "No estimate";
   const ranked: [string, number][] = [
@@ -453,6 +604,7 @@ function crossCheckSummary(data: CaseDetail) {
 }
 
 function AnalystDecision({ data, done }: { data: CaseDetail; done: string }) {
+  const status = data.work.status || "New";
   const last = data.trail.find(
     (event) => event.kind === "human" && (event.action === "accept" || event.action === "override"),
   );
@@ -474,11 +626,23 @@ function AnalystDecision({ data, done }: { data: CaseDetail; done: string }) {
         </dd>
         <dt>Status</dt>
         <dd>
-          {data.work.status || "New"}
+          {status}
           {data.work.assignee ? ` · owner ${data.work.assignee}` : " · no owner"}
           {data.work.rfiSent ? " · request sent" : ""}
+          {STATUS_HELP[status] ? <span className="status-help">{STATUS_HELP[status]}</span> : null}
         </dd>
       </dl>
+      <details className="why status-key">
+        <summary>What the statuses mean</summary>
+        <dl className="facts">
+          {Object.entries(STATUS_HELP).map(([name, help]) => (
+            <div key={name} className="fact-pair">
+              <dt>{name}</dt>
+              <dd>{help}</dd>
+            </div>
+          ))}
+        </dl>
+      </details>
     </div>
   );
 }

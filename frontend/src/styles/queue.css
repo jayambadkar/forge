@@ -281,11 +281,11 @@ main {
 /* Case cards */
 
 .queue-page .cards {
-  gap: 12px;
+  gap: 16px;
 }
 
 .queue-page .case-card {
-  padding: 16px 24px 16px 16px;
+  padding: 20px 28px 20px 20px;
 }
 
 .queue-page .case-card:hover {

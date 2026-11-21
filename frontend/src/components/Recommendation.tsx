@@ -2,9 +2,60 @@ import { gbp, percent, reasonLabel, sentences, verdictLabel } from "../format";
 import type { CaseDetail } from "../types";
 import { VerdictPill } from "./Verdict";
 
-type Props = { data: CaseDetail; amount: number };
+export type EvidenceRef = { kind: "doc" | "alert" | "txn" | "other"; label: string };
+export type DescribeEvidence = (id: string) => EvidenceRef | undefined;
 
-export function Recommendation({ data, amount }: Props) {
+/** Builds a lookup from evidence id to what it points at in this case. */
+export function evidenceLookup(data: CaseDetail): DescribeEvidence {
+  const found = new Map<string, EvidenceRef>();
+  for (const doc of data.evidence)
+    found.set(doc.id, {
+      kind: "doc",
+      label: `${doc.kind.replaceAll("_", " ")}: ${doc.title || doc.id}`,
+    });
+  for (const alert of data.alerts)
+    found.set(alert.id, { kind: "alert", label: `${alert.ruleId} ${alert.ruleName}` });
+  for (const txn of data.timeline)
+    found.set(txn.id, {
+      kind: "txn",
+      label: `${txn.timestamp.slice(0, 10)} ${txn.counterparty || "No counterparty name"} ${gbp(txn.amount)}`,
+    });
+  return (id) => found.get(id);
+}
+
+type ChipProps = {
+  id: string;
+  text?: string;
+  describe?: DescribeEvidence;
+  onSelect?: (id: string) => void;
+};
+
+/** One evidence id. A button that jumps to the record when the case is loaded. */
+export function EvidenceChip({ id, text, describe, onSelect }: ChipProps) {
+  const ref = describe?.(id);
+  const title = ref?.label ?? id;
+  if (!onSelect || !ref)
+    return (
+      <code className="chip" title={title}>
+        {text ?? id}
+      </code>
+    );
+  const where = ref.kind === "doc" ? "Evidence" : ref.kind === "alert" ? "Alerts" : "Transactions";
+  return (
+    <button
+      type="button"
+      className="chip"
+      title={`${title}. Show it in ${where}.`}
+      onClick={() => onSelect(id)}
+    >
+      <code>{text ?? id}</code>
+    </button>
+  );
+}
+
+type Props = { data: CaseDetail; amount: number; onSelect?: (id: string) => void };
+
+export function Recommendation({ data, amount, onSelect }: Props) {
   const decision = data.decision;
   if (!decision) return <p>No recommendation has been written for this case.</p>;
   const tone = decision.verdict.toLowerCase();
@@ -16,6 +67,7 @@ export function Recommendation({ data, amount }: Props) {
   const usedTxns = decision.evidence.filter((id) => txns.has(id));
   const other = decision.evidence.filter((id) => !docs.has(id) && !alerts.has(id) && !txns.has(id));
   const steps = sentences(decision.reason);
+  const describe = evidenceLookup(data);
   return (
     <section className={`decision ${tone}`} aria-label="Recommendation">
       <div className="decision-head">
@@ -44,9 +96,13 @@ export function Recommendation({ data, amount }: Props) {
           {usedDocs.length ? (
             <span className="chips">
               {usedDocs.map((id) => (
-                <code key={id} title={docs.get(id)?.title}>
-                  {id} · {docs.get(id)?.kind.replaceAll("_", " ")}
-                </code>
+                <EvidenceChip
+                  key={id}
+                  id={id}
+                  text={`${id} · ${docs.get(id)?.kind.replaceAll("_", " ") ?? ""}`}
+                  describe={describe}
+                  onSelect={onSelect}
+                />
               ))}
             </span>
           ) : (
@@ -55,17 +111,15 @@ export function Recommendation({ data, amount }: Props) {
         </dd>
         <dt>Other records used</dt>
         <dd>
-          {[
-            usedAlerts.length
-              ? `${usedAlerts.length} alert${usedAlerts.length === 1 ? "" : "s"}`
-              : "",
-            usedTxns.length
-              ? `${usedTxns.length} transaction${usedTxns.length === 1 ? "" : "s"}`
-              : "",
-            ...other,
-          ]
-            .filter(Boolean)
-            .join(" · ") || "—"}
+          {usedAlerts.length || usedTxns.length || other.length ? (
+            <span className="chips">
+              {[...usedAlerts, ...usedTxns, ...other].map((id) => (
+                <EvidenceChip key={id} id={id} describe={describe} onSelect={onSelect} />
+              ))}
+            </span>
+          ) : (
+            "—"
+          )}
         </dd>
       </dl>
       <h2 className="decision-sub">Why</h2>
