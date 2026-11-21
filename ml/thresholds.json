@@ -1,0 +1,13 @@
+{
+  "close_probability": 0.7,
+  "ship_into_system_run": false,
+  "chosen_lightgbm": {
+    "num_leaves": 31,
+    "min_child_samples": 20,
+    "feature_fraction": 1.0,
+    "bagging_fraction": 0.7,
+    "bagging_freq": 1,
+    "lambda_l1": 0.0,
+    "lambda_l2": 0.0
+  }
+}
