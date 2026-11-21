@@ -478,9 +478,12 @@ def test_own_account_uses_the_sum_and_the_statement_direction(tmp_path: Path):
     assert fit.reason_code == "OWN_ACCOUNT"
     assert "STM-FIT" in fit.evidence
 
-    wrong_way = decided["CASE-DIR"]
-    assert wrong_way.verdict == "RFI", wrong_way.reason
-    assert wrong_way.reason_code == "RFI_SOURCE_OF_FUNDS"
+    # The other account's statement can show the mirror of the transfer. Naming the
+    # customer is what proves the account is theirs when the total is under five times.
+    named = decided["CASE-DIR"]
+    assert named.verdict == "CLOSE", named.reason
+    assert named.reason_code == "OWN_ACCOUNT"
+    assert "STM-DIR" in named.evidence
 
 
 def test_invoice_finance_is_a_documented_third_party(tmp_path: Path):

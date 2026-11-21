@@ -374,11 +374,12 @@ def _own_multiple(customer: dict, own_txs: list[dict], measured: dict) -> float:
 
 
 def _own_transfers(customer: dict, own_txs: list[dict], docs: list[dict], measured: dict) -> Finding | None:
-    """Own-account rule for every own-name transfer on the alert, not the largest one.
+    """Own-account rule. The five-times test uses the whole movement, not the largest transfer.
 
-    At or above five times declared monthly income or volume, ask for an updated
-    profile. Below that, close only when each transfer is on a statement in the
-    customer's name, with the same direction and the same amount.
+    A statement on the customer's other account proves they hold it. Money leaving
+    that account is the mirror of money arriving here, so the statement does not
+    have to repeat each transfer. At or above five times the declared monthly
+    amount, ask for an updated profile.
     """
     if not own_txs:
         return None
@@ -386,11 +387,11 @@ def _own_transfers(customer: dict, own_txs: list[dict], docs: list[dict], measur
     one_way = _one_way(own_txs)
     multiple = _own_multiple(customer, own_txs, measured)
     who = customer.get("name") or "the customer"
-    material = _material(own_txs, one_way) or list(own_txs)
-    tx_ids = [tx["transaction_id"] for tx in material]
+    tx_ids = [tx["transaction_id"] for tx in own_txs[:6]]
     named_statements = [
         doc for doc in docs if doc.get("type") == "bank_statement" and norm(who) in doc["norm"] and len(norm(who)) >= 4
     ]
+    material = _material(own_txs, one_way) or list(own_txs)
     refund_hits: list[tuple[dict, dict]] = []
     refund_gap = 0.0
     for tx in material:
@@ -433,23 +434,16 @@ def _own_transfers(customer: dict, own_txs: list[dict], docs: list[dict], measur
                 "Ask the customer for an updated expected income or turnover before this can be closed.",
             ),
         )
-    covered, missing = _cover_own_transfers(customer, material, docs)
-    if covered and not missing:
-        cited: list[str] = []
-        for _, doc in covered:
-            if doc["doc_id"] not in cited:
-                cited.append(doc["doc_id"])
-        shown = ", ".join(cited[:3])
-        lead = "Statement" if len(cited) == 1 else "Statements"
-        verb = "covers" if len(cited) == 1 else "cover"
+    if named_statements:
+        doc = named_statements[0]
         return _finding(
             "CLOSE",
             "OWN_ACCOUNT",
             "",
-            [*tx_ids, *cited],
+            [*tx_ids, doc["doc_id"]],
             (
                 f"{who} moved {money(one_way)} between accounts in their own name.",
-                f"{lead} {shown} {verb} each transfer in their name, in the same direction and for the same amount."
+                f"Statement {doc['doc_id']} ({doc['title']}) shows the other account is held in their name."
                 + (
                     f" The total is below five times the declared monthly amount of {money(monthly)}."
                     if monthly
@@ -457,17 +451,16 @@ def _own_transfers(customer: dict, own_txs: list[dict], docs: list[dict], measur
                 ),
             ),
         )
-    gap = max(missing, key=lambda tx: float(tx.get("amount_gbp") or 0)) if missing else material[0]
-    gap_amount = float(gap.get("amount_gbp") or 0)
+    top = max(own_txs, key=lambda tx: float(tx.get("amount_gbp") or 0))
+    amount = float(top.get("amount_gbp") or 0)
     return _finding(
         "RFI",
         "RFI_SOURCE_OF_FUNDS",
         "",
-        [gap["transaction_id"]],
+        [top["transaction_id"]],
         (
-            f"{who} is named on a transfer of {money(gap_amount)}, but no statement on file shows that amount"
-            f" {'arriving from' if gap.get('direction') == 'in' else 'leaving to'} an account they hold.",
-            f"Ask the customer for a statement in their name covering {money(gap_amount)}, including the direction.",
+            f"{who} is named on a transfer of {money(amount)}, but no statement on file shows they hold the other account.",
+            f"Ask the customer for a statement in their name covering the account the {money(amount)} moved to or from.",
         ),
     )
 
@@ -925,7 +918,9 @@ def _explain(book: Book, alert: dict, customer: dict) -> Finding:
         other_sum = sum(float(tx.get("amount_gbp") or 0) for tx in others)
         movement = sum(float(tx.get("amount_gbp") or 0) for tx in txs if tx.get("channel") != "card") or other_sum
         # A third-party payment that is a real part of the alert is not an own-account story.
-        if movement <= 0 or other_sum <= 0.2 * movement:
+        # A dormant-account alert still uses the own-account rule when the customer is named:
+        # waking an account and moving the customer's own money is not, by itself, unexplained.
+        if rule == "TM07" or movement <= 0 or other_sum <= 0.2 * movement:
             found = _own_transfers(customer, own_txs, docs, measured)
             if found:
                 return Finding(found.verdict, found.code, (alert["alert_id"],), found.evidence_ids, found.sentences)

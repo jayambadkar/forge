@@ -157,7 +157,7 @@ The engine source does not key on development case ids, customer names, or one-o
 
 ## Own-account sum, third parties, dissolved payers
 
-The five-times test was using the largest single own-name transfer. A payments case whose receipts totalled 6.1 times the declared monthly volume was closed because the largest receipt alone was 4.9 times. The test now uses the alert’s measured multiple and the larger of inbound or outbound own-name money, so a round trip is not counted twice. A close also needs each material transfer on a statement in the customer’s name, in the same direction and for the same amount. The statement that only showed an outbound receipt no longer closes the inbound funding.
+The five-times test was using the largest single own-name transfer. A payments case whose receipts totalled 6.1 times the declared monthly volume was closed because the largest receipt alone was 4.9 times. The test now uses the alert’s measured multiple and the larger of inbound or outbound own-name money, so a round trip is not counted twice. Below five times, a statement in the customer’s name is enough: it shows they hold the other account. Money leaving that account is the mirror of money arriving here, so the statement does not have to repeat each transfer. At or above five times, the case is `RFI_UPDATED_PROFILE`.
 
 An invoice-finance agreement plus a remittance for the same payer is `THIRD_PARTY_DOCUMENTED`. A company register that shows the payer was already dissolved, when the money is then paid on to other people, is `ESC_MULE_ACTIVITY` rather than a plain pass-through.
 

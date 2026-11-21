@@ -1071,5 +1071,15 @@
     "wrongful_close_with": 0.0006,
     "kept": false,
     "note": "Linked-case features did not lower out-of-fold expected cost by at least 0.005, so the shipped score does not use them."
+  },
+  "policy_label_f1": {
+    "against": "policy labels on the held-out customers",
+    "model": "lightgbm_ablated",
+    "macro_f1": 0.9965,
+    "per_class_f1": {
+      "CLOSE": 1.0,
+      "RFI": 0.9954,
+      "ESCALATE": 0.994
+    }
   }
 }
