@@ -2,7 +2,11 @@ import { gbp, percent, reasonLabel, sentences, verdictLabel } from "../format";
 import type { CaseDetail } from "../types";
 import { VerdictPill } from "./Verdict";
 
-export type EvidenceRef = { kind: "doc" | "alert" | "txn" | "other"; label: string };
+export type EvidenceRef = {
+  kind: "doc" | "alert" | "txn" | "list" | "other";
+  type: string;
+  label: string;
+};
 export type DescribeEvidence = (id: string) => EvidenceRef | undefined;
 
 /** Builds a lookup from evidence id to what it points at in this case. */
@@ -11,16 +15,26 @@ export function evidenceLookup(data: CaseDetail): DescribeEvidence {
   for (const doc of data.evidence)
     found.set(doc.id, {
       kind: "doc",
+      type: doc.kind.replaceAll("_", " "),
       label: `${doc.kind.replaceAll("_", " ")}: ${doc.title || doc.id}`,
     });
   for (const alert of data.alerts)
-    found.set(alert.id, { kind: "alert", label: `${alert.ruleId} ${alert.ruleName}` });
+    found.set(alert.id, {
+      kind: "alert",
+      type: `alert ${alert.ruleId}`,
+      label: `${alert.ruleId} ${alert.ruleName}`,
+    });
   for (const txn of data.timeline)
     found.set(txn.id, {
       kind: "txn",
+      type: "transaction",
       label: `${txn.timestamp.slice(0, 10)} ${txn.counterparty || "No counterparty name"} ${gbp(txn.amount)}`,
     });
-  return (id) => found.get(id);
+  return (id) =>
+    found.get(id) ??
+    (/-L\d+$/.test(id)
+      ? { kind: "list", type: "internal list entry", label: "Internal list entry" }
+      : undefined);
 }
 
 type ChipProps = {
@@ -34,10 +48,11 @@ type ChipProps = {
 export function EvidenceChip({ id, text, describe, onSelect }: ChipProps) {
   const ref = describe?.(id);
   const title = ref?.label ?? id;
-  if (!onSelect || !ref)
+  const shown = text ?? (ref ? `${id} · ${ref.type}` : id);
+  if (!onSelect || !ref || ref.kind === "list")
     return (
       <code className="chip" title={title}>
-        {text ?? id}
+        {shown}
       </code>
     );
   const where = ref.kind === "doc" ? "Evidence" : ref.kind === "alert" ? "Alerts" : "Transactions";
@@ -48,7 +63,7 @@ export function EvidenceChip({ id, text, describe, onSelect }: ChipProps) {
       title={`${title}. Show it in ${where}.`}
       onClick={() => onSelect(id)}
     >
-      <code>{text ?? id}</code>
+      <code>{shown}</code>
     </button>
   );
 }
