@@ -24,7 +24,7 @@ export function Institutions() {
   if (rows.length === 0) return <p>Loading institutions…</p>;
 
   return (
-    <>
+    <div className="overview">
       <p className="crumbs">Forge / Institutions</p>
       <h1>Institutions</h1>
       <p className="lede">
@@ -38,26 +38,23 @@ export function Institutions() {
               <h2>
                 <Link to={`/?institution=${row.id}`}>{row.label}</Link>
               </h2>
-              <strong className="figure">{row.cases.toLocaleString("en-GB")}</strong>
-              <div className="bar" aria-hidden="true">
-                <span
-                  style={{ width: `${(row.close / total) * 100}%`, background: "var(--green)" }}
-                />
-                <span
-                  style={{ width: `${(row.rfi / total) * 100}%`, background: "var(--orange)" }}
-                />
-                <span
-                  style={{ width: `${(row.escalate / total) * 100}%`, background: "var(--red)" }}
-                />
-              </div>
-              <p className="meta">
-                {row.close} close · {row.rfi} RFI · {row.escalate} escalate
+              <p className="kpi-label">Cases</p>
+              <p className="kpi-value nums">{row.cases.toLocaleString("en-GB")}</p>
+              <span className="stack" aria-hidden="true">
+                <i className="close" style={{ width: `${(row.close / total) * 100}%` }} />
+                <i className="rfi" style={{ width: `${(row.rfi / total) * 100}%` }} />
+                <i className="escalate" style={{ width: `${(row.escalate / total) * 100}%` }} />
+              </span>
+              <p className="kpi-note nums">
+                {row.close.toLocaleString("en-GB")} close · {row.rfi.toLocaleString("en-GB")} RFI ·{" "}
+                {row.escalate.toLocaleString("en-GB")} escalate
               </p>
-              <ul>
+              <p className="firm-sub">Most common reasons</p>
+              <ul className="reason-counts">
                 {row.reasons.slice(0, 5).map((reason) => (
                   <li key={reason.code}>
-                    <span className="code-tag">{reason.code}</span>{" "}
-                    <span className="nums">{reason.count}</span>
+                    <span className="code-tag">{reason.code}</span>
+                    <span className="nums">{reason.count.toLocaleString("en-GB")}</span>
                   </li>
                 ))}
               </ul>
@@ -65,6 +62,6 @@ export function Institutions() {
           );
         })}
       </div>
-    </>
+    </div>
   );
 }

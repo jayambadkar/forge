@@ -26,7 +26,7 @@ export function AuditLog() {
   const filters = { kind, institution, q };
 
   return (
-    <>
+    <div className="audit-page">
       <p className="crumbs">Forge / Audit log</p>
       <h1>Audit log</h1>
       <p className="lede">
@@ -39,6 +39,22 @@ export function AuditLog() {
         </div>
       ) : null}
       <div className="toolbar">
+        <form
+          className="search"
+          role="search"
+          onSubmit={(event) => {
+            event.preventDefault();
+            setQ(search);
+          }}
+        >
+          <input
+            aria-label="Search the log"
+            type="search"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Case, analyst or code"
+          />
+        </form>
         <select aria-label="Kind" value={kind} onChange={(event) => setKind(event.target.value)}>
           <option value="">All events</option>
           <option value="ai">Policy engine</option>
@@ -57,19 +73,6 @@ export function AuditLog() {
           <option value="investment">Investment</option>
           <option value="payments_fx">Payments & FX</option>
         </select>
-        <form
-          onSubmit={(event) => {
-            event.preventDefault();
-            setQ(search);
-          }}
-        >
-          <input
-            aria-label="Search the log"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Case, analyst or code"
-          />
-        </form>
         <ExportMenu params={filters} />
       </div>
       {loading ? <p>Loading the log…</p> : null}
@@ -79,6 +82,6 @@ export function AuditLog() {
           <AuditEntry key={event.id} event={event} showCase />
         ))}
       </ol>
-    </>
+    </div>
   );
 }

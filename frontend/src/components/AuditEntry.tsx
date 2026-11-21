@@ -153,11 +153,11 @@ export function AuditEntry({ event, showCase = false }: { event: AuditEvent; sho
         </dl>
       ) : null}
       {event.note ? (
-        <p>
+        <p className="audit-note">
           <strong>Note:</strong> {event.note}
         </p>
       ) : null}
-      {event.kind === "system" ? <p>{event.detail}</p> : null}
+      {event.kind === "system" ? <p className="audit-note">{event.detail}</p> : null}
     </li>
   );
 }

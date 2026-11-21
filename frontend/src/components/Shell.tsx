@@ -111,11 +111,11 @@ export function Shell() {
                 )}
               </div>
             ) : null}
-            <p className="analyst" title="Signed in">
+            <p className="top-user" title="Signed in">
               <span className="avatar" aria-hidden="true">
                 AO
               </span>
-              Amira Okonkwo
+              <span className="name">Amira Okonkwo</span>
             </p>
           </div>
         </div>

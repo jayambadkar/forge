@@ -85,7 +85,7 @@ export function How() {
   }, []);
 
   return (
-    <>
+    <div className="overview how">
       <p className="crumbs">Forge / How it works</p>
       <h1>How Forge works</h1>
       <p className="lede">
@@ -149,30 +149,32 @@ export function How() {
       {report ? (
         <>
           <p>{report.why}</p>
-          <table>
-            <thead>
-              <tr>
-                <th>Check</th>
-                <th>Cost</th>
-                <th>On the training customers</th>
-                <th>On the held-aside fold</th>
-              </tr>
-            </thead>
-            <tbody>
-              {Object.entries(report.comparison_on_train_oof).map(([name, block]) => (
-                <tr key={name}>
-                  <td>{plainName(name)}</td>
-                  <td className="nums">{block.expected_cost.toFixed(3)}</td>
-                  <td className="nums">
-                    {block.gap ? block.gap.mean_train_expected_cost.toFixed(3) : "—"}
-                  </td>
-                  <td className="nums">
-                    {block.gap ? block.gap.mean_validation_expected_cost.toFixed(3) : "—"}
-                  </td>
+          <div className="table-wrap">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Check</th>
+                  <th className="num">Cost</th>
+                  <th className="num">On the training customers</th>
+                  <th className="num">On the held-aside fold</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {Object.entries(report.comparison_on_train_oof).map(([name, block]) => (
+                  <tr key={name}>
+                    <td>{plainName(name)}</td>
+                    <td className="num nums">{block.expected_cost.toFixed(3)}</td>
+                    <td className="num nums">
+                      {block.gap ? block.gap.mean_train_expected_cost.toFixed(3) : "—"}
+                    </td>
+                    <td className="num nums">
+                      {block.gap ? block.gap.mean_validation_expected_cost.toFixed(3) : "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
           <p>
             The held-out customers ({report.split.test_n.toLocaleString("en-GB")}) cost{" "}
             {report.test_once.expected_cost.toFixed(3)} for the chosen check, against{" "}
@@ -188,24 +190,26 @@ export function How() {
             </p>
           ) : null}
           <h2>Which groups of facts were useful</h2>
-          <table>
-            <thead>
-              <tr>
-                <th>Group</th>
-                <th>Cost increase when removed</th>
-                <th>Kept</th>
-              </tr>
-            </thead>
-            <tbody>
-              {report.group_ablation.map((item) => (
-                <tr key={item.group}>
-                  <td>{item.group.replaceAll("_", " ")}</td>
-                  <td className="nums">{item.validation_cost_increase.toFixed(3)}</td>
-                  <td>{item.earns_place ? "Yes" : "No"}</td>
+          <div className="table-wrap">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Group</th>
+                  <th className="num">Cost increase when removed</th>
+                  <th>Kept</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {report.group_ablation.map((item) => (
+                  <tr key={item.group}>
+                    <td>{item.group.replaceAll("_", " ")}</td>
+                    <td className="num nums">{item.validation_cost_increase.toFixed(3)}</td>
+                    <td>{item.earns_place ? "Yes" : "No"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
           <p className="meta">
             {report.n_cases.toLocaleString("en-GB")} cases, {report.n_atomic_features} facts,{" "}
             {report.outer_folds ?? 5}-fold check. Chosen on the training customers:{" "}
@@ -215,7 +219,7 @@ export function How() {
       ) : (
         <p>The check figures are not loaded yet.</p>
       )}
-    </>
+    </div>
   );
 }
 
@@ -278,70 +282,74 @@ function UnseenFirm({ desk, previous }: { desk: DeskModel; previous: Record<stri
           : `${desk.policy_closes_without_document} recommended closes are among them`}
         .
       </p>
-      <table>
-        <thead>
-          <tr>
-            <th>Firm left out</th>
-            <th>Cost before</th>
-            <th>Cost now</th>
-            <th>Wrong closes before</th>
-            <th>Wrong closes now</th>
-            <th>Macro F1 before</th>
-            <th>Macro F1 now</th>
-          </tr>
-        </thead>
-        <tbody>
-          {Object.entries(desk.leave_one_institution_out).map(([firm, block]) => (
-            <tr key={firm}>
-              <td>{FIRMS[firm] ?? firm}</td>
-              <td className="nums">{previous[firm]?.expected_cost.toFixed(2) ?? "—"}</td>
-              <td className="nums">{block.expected_cost.toFixed(2)}</td>
-              <td className="nums">{percent(previous[firm]?.wrongful_close_rate)}</td>
-              <td className="nums">{percent(block.wrongful_close_rate)}</td>
-              <td className="nums">{previous[firm]?.macro_f1?.toFixed(3) ?? "—"}</td>
-              <td className="nums">{block.macro_f1?.toFixed(3) ?? "—"}</td>
+      <div className="table-wrap">
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th>Firm left out</th>
+              <th className="num">Cost before</th>
+              <th className="num">Cost now</th>
+              <th className="num">Wrong closes before</th>
+              <th className="num">Wrong closes now</th>
+              <th className="num">Macro F1 before</th>
+              <th className="num">Macro F1 now</th>
             </tr>
-          ))}
-          <tr>
-            <td>All four</td>
-            <td className="nums">{before.expected_cost.toFixed(2)}</td>
-            <td className="nums">{all.expected_cost.toFixed(2)}</td>
-            <td className="nums">{percent(before.wrongful_close_rate)}</td>
-            <td className="nums">{percent(all.wrongful_close_rate)}</td>
-            <td className="nums">{before.macro_f1?.toFixed(3) ?? "—"}</td>
-            <td className="nums">{all.macro_f1?.toFixed(3) ?? "—"}</td>
-          </tr>
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {Object.entries(desk.leave_one_institution_out).map(([firm, block]) => (
+              <tr key={firm}>
+                <td>{FIRMS[firm] ?? firm}</td>
+                <td className="num nums">{previous[firm]?.expected_cost.toFixed(2) ?? "—"}</td>
+                <td className="num nums">{block.expected_cost.toFixed(2)}</td>
+                <td className="num nums">{percent(previous[firm]?.wrongful_close_rate)}</td>
+                <td className="num nums">{percent(block.wrongful_close_rate)}</td>
+                <td className="num nums">{previous[firm]?.macro_f1?.toFixed(3) ?? "—"}</td>
+                <td className="num nums">{block.macro_f1?.toFixed(3) ?? "—"}</td>
+              </tr>
+            ))}
+            <tr className="total">
+              <td>All four</td>
+              <td className="num nums">{before.expected_cost.toFixed(2)}</td>
+              <td className="num nums">{all.expected_cost.toFixed(2)}</td>
+              <td className="num nums">{percent(before.wrongful_close_rate)}</td>
+              <td className="num nums">{percent(all.wrongful_close_rate)}</td>
+              <td className="num nums">{before.macro_f1?.toFixed(3) ?? "—"}</td>
+              <td className="num nums">{all.macro_f1?.toFixed(3) ?? "—"}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
       <h2>F1 by verdict</h2>
-      <table>
-        <thead>
-          <tr>
-            <th>Scored on</th>
-            <th>Close</th>
-            <th>Request info</th>
-            <th>Escalate</th>
-            <th>Macro</th>
-          </tr>
-        </thead>
-        <tbody>
-          {(
-            [
-              ["Known firms, out of fold", desk.out_of_fold],
-              ["Held-out customers", desk.test_once],
-              ["A firm left out", all],
-            ] as const
-          ).map(([label, block]) => (
-            <tr key={label}>
-              <td>{label}</td>
-              <td className="nums">{block.per_class_f1?.CLOSE?.toFixed(3) ?? "—"}</td>
-              <td className="nums">{block.per_class_f1?.RFI?.toFixed(3) ?? "—"}</td>
-              <td className="nums">{block.per_class_f1?.ESCALATE?.toFixed(3) ?? "—"}</td>
-              <td className="nums">{block.macro_f1?.toFixed(3) ?? "—"}</td>
+      <div className="table-wrap">
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th>Scored on</th>
+              <th className="num">Close</th>
+              <th className="num">Request info</th>
+              <th className="num">Escalate</th>
+              <th className="num">Macro</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {(
+              [
+                ["Known firms, out of fold", desk.out_of_fold],
+                ["Held-out customers", desk.test_once],
+                ["A firm left out", all],
+              ] as const
+            ).map(([label, block]) => (
+              <tr key={label}>
+                <td>{label}</td>
+                <td className="num nums">{block.per_class_f1?.CLOSE?.toFixed(3) ?? "—"}</td>
+                <td className="num nums">{block.per_class_f1?.RFI?.toFixed(3) ?? "—"}</td>
+                <td className="num nums">{block.per_class_f1?.ESCALATE?.toFixed(3) ?? "—"}</td>
+                <td className="num nums">{block.macro_f1?.toFixed(3) ?? "—"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </>
   );
 }

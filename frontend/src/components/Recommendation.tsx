@@ -27,12 +27,13 @@ export function Recommendation({ data, amount }: Props) {
           </p>
         </div>
       </div>
-      <dl className="facts">
+      <dl className="facts ruled">
         <dt>Rules triggered</dt>
         <dd>
           {data.alerts.map((alert) => (
             <span key={alert.id} className="rule">
-              <code>{alert.ruleId}</code> {alert.ruleName}
+              <code>{alert.ruleId}</code>
+              <span>{alert.ruleName}</span>
             </span>
           ))}
         </dd>
@@ -90,7 +91,7 @@ export function CrossCheck({ data }: { data: CaseDetail }) {
   const agrees = top.verdict === decision.verdict;
   return (
     <>
-      <p>
+      <p className="lead-in">
         A separate machine-learning model reads the same case facts and estimates how likely each
         outcome is. It was trained on Forge's past decisions across all four firms. It never changes
         the recommendation; it flags cases worth a second look.

@@ -122,8 +122,9 @@ export function CaseView() {
         <span className="nums">{data.caseId}</span>
       </p>
       <CaseNav institution={institution} caseId={caseId} />
-      <h1>
-        {data.customer.name || data.caseId} <VerdictPill verdict={data.decision?.verdict ?? ""} />
+      <h1 className="case-title">
+        <span>{data.customer.name || data.caseId}</span>
+        <VerdictPill verdict={data.decision?.verdict ?? ""} />
       </h1>
       {error ? (
         <div className="banner escalate" role="alert">
@@ -131,13 +132,13 @@ export function CaseView() {
         </div>
       ) : null}
       <Recommendation data={data} amount={alertAmount} />
-      <p className="meta">
+      <p className="meta case-meta">
         {labelFor(institution)} · {openLabel(data.openedAt)} ·{" "}
         <span className="nums">{gbp(alertAmount)}</span>
         {data.work.status === "Escalated / MLRO" ? " · With the MLRO" : ""}
         {data.work.assignee ? ` · ${data.work.assignee}` : ""}
       </p>
-      <div className="toolbar">
+      <div className="toolbar case-actions">
         <button
           type="button"
           className="primary"
@@ -151,6 +152,7 @@ export function CaseView() {
         <details className="menu">
           <summary>Override</summary>
           <form
+            className="menu-form"
             onSubmit={(event) => {
               event.preventDefault();
               void run("override", { verdict: override, note });
@@ -179,7 +181,7 @@ export function CaseView() {
                 minLength={8}
               />
             </label>
-            <button type="submit" disabled={busy}>
+            <button type="submit" className="primary" disabled={busy}>
               Save override
             </button>
           </form>
@@ -192,8 +194,8 @@ export function CaseView() {
 
       <details className="fold" open={expand}>
         <summary>
-          Case file{" "}
-          <span>
+          <span className="fold-title">Case file</span>
+          <span className="fold-meta">
             {data.customer.kind || "Customer"} · {data.work.assignee || "unassigned"}
           </span>
         </summary>
@@ -256,35 +258,41 @@ export function CaseView() {
 
       <details className="fold" open={expand}>
         <summary>
-          Alerts <span>{data.alerts.length}</span>
+          <span className="fold-title">Alerts</span>
+          <span className="fold-meta">{data.alerts.length}</span>
         </summary>
         <div className="fold-body">
           {data.alerts.length === 0 ? (
             <p>No alerts on this case.</p>
           ) : (
-            data.alerts.map((alert) => (
-              <article key={alert.id} className="panel">
-                <p className="caption">
-                  {alert.ruleId} · {alert.id}
-                </p>
-                <h2 style={{ fontSize: 19 }}>{alert.ruleName}</h2>
-                <p>{alert.message}</p>
-              </article>
-            ))
+            <div className="alert-list">
+              {data.alerts.map((alert) => (
+                <article key={alert.id} className="panel">
+                  <p className="caption nums">
+                    {alert.ruleId} · {alert.id}
+                  </p>
+                  <h2 className="panel-title">{alert.ruleName}</h2>
+                  <p>{alert.message}</p>
+                </article>
+              ))}
+            </div>
           )}
         </div>
       </details>
 
       <details className="fold" open={expand}>
         <summary>
-          Transactions <span>{data.timeline.filter((txn) => txn.inAlert).length} on the alert</span>
+          <span className="fold-title">Transactions</span>
+          <span className="fold-meta">
+            {data.timeline.filter((txn) => txn.inAlert).length} on the alert
+          </span>
         </summary>
         <div className="fold-body">
-          <p>
+          <div className="toolbar">
             <button type="button" onClick={() => setShowAll((value) => !value)}>
               {showAll ? "Show alert lines only" : `Show full history (${data.timeline.length})`}
             </button>
-          </p>
+          </div>
           {timeline.length === 0 ? (
             <p>No transactions in this view.</p>
           ) : (
@@ -316,8 +324,8 @@ export function CaseView() {
 
       <details className="fold" open={expand}>
         <summary>
-          Evidence{" "}
-          <span>
+          <span className="fold-title">Evidence</span>
+          <span className="fold-meta">
             {plural(data.evidence.length, "document")}
             {citedDocs ? `, ${citedDocs} cited` : ""}
           </span>
@@ -335,18 +343,18 @@ export function CaseView() {
                     aria-current={item.id === doc?.id}
                     onClick={() => setSelected(item.id)}
                   >
-                    <strong className="nums">{item.id}</strong>
-                    <div>
+                    <strong className="doc-id nums">{item.id}</strong>
+                    <span className="doc-kind">
                       {item.kind.replaceAll("_", " ")}
                       {item.cited ? " · cited" : ""}
-                    </div>
+                    </span>
                   </button>
                 ))}
               </div>
               {doc ? (
                 <article className={doc.cited ? "panel cited" : "panel"}>
                   <p className="caption">{doc.cited ? "Cited" : "On file"}</p>
-                  <h2 style={{ fontSize: 24 }}>{doc.title || doc.id}</h2>
+                  <h2 className="doc-title">{doc.title || doc.id}</h2>
                   <Markdown
                     text={
                       withoutTitle(doc.text, doc.title) || "This document has no extracted text."
@@ -361,19 +369,20 @@ export function CaseView() {
 
       <details className="fold" open={expand}>
         <summary>
-          Linked cases <span>{data.related.length}</span>
+          <span className="fold-title">Linked cases</span>
+          <span className="fold-meta">{data.related.length}</span>
         </summary>
         <div className="fold-body">
           {data.related.length === 0 ? (
             <p>No other case shares a counterparty, device, account, customer or list entry.</p>
           ) : (
-            <ul>
+            <ul className="linked-list">
               {data.related.map((item) => (
                 <li key={`${item.institution}-${item.caseId}`}>
                   <Link to={`/cases/${item.institution}/${item.caseId}`}>
                     {item.customerName} · {item.caseId}
-                  </Link>{" "}
-                  <VerdictPill verdict={item.verdict} />{" "}
+                  </Link>
+                  <VerdictPill verdict={item.verdict} />
                   <span className="meta">
                     {item.link} · {item.via}
                   </span>
@@ -386,7 +395,8 @@ export function CaseView() {
 
       <details className="fold" open={expand}>
         <summary>
-          Model cross-check <span>{crossCheckSummary(data)}</span>
+          <span className="fold-title">Model cross-check</span>
+          <span className="fold-meta">{crossCheckSummary(data)}</span>
         </summary>
         <div className="fold-body">
           <CrossCheck data={data} />
@@ -395,7 +405,8 @@ export function CaseView() {
 
       <details className="fold" open={expand}>
         <summary>
-          Audit trail <span>{plural(data.trail.length, "event")}</span>
+          <span className="fold-title">Audit trail</span>
+          <span className="fold-meta">{plural(data.trail.length, "event")}</span>
         </summary>
         <div className="fold-body">
           {data.trail.length === 0 ? (
@@ -411,7 +422,10 @@ export function CaseView() {
       </details>
 
       <details className="fold" open={expand}>
-        <summary>Record</summary>
+        <summary>
+          <span className="fold-title">Record</span>
+          <span className="fold-meta">JSON</span>
+        </summary>
         <div className="fold-body">
           <pre className="source">{JSON.stringify(submission, null, 2)}</pre>
         </div>
@@ -443,9 +457,9 @@ function AnalystDecision({ data, done }: { data: CaseDetail; done: string }) {
     (event) => event.kind === "human" && (event.action === "accept" || event.action === "override"),
   );
   return (
-    <div className="analyst" role="status">
+    <div className="analyst-block" role="status">
       {done ? <p className="done">{done}</p> : null}
-      <dl className="facts">
+      <dl className="facts ruled">
         <dt>Analyst decision</dt>
         <dd>
           {last ? (

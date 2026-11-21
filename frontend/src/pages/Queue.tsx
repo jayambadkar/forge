@@ -116,7 +116,7 @@ export function Queue() {
   });
 
   return (
-    <>
+    <div className="queue-page">
       <p className="crumbs">Forge / Case queue</p>
       <h1>{labelFor(institution)}</h1>
       <p className="lede">
@@ -129,6 +129,8 @@ export function Queue() {
       ) : null}
       <div className="toolbar">
         <form
+          className="search"
+          role="search"
           onSubmit={(event) => {
             event.preventDefault();
             set({ q: search });
@@ -139,7 +141,7 @@ export function Queue() {
             onChange={(event) => setSearch(event.target.value)}
             placeholder="Search"
             aria-label="Search"
-            style={{ width: "14rem" }}
+            type="search"
           />
         </form>
         <select
@@ -236,7 +238,8 @@ export function Queue() {
           >
             <div className="card-top">
               <h2>
-                {row.customerName || row.customerId} <VerdictPill verdict={row.verdict} />
+                <span className="card-name">{row.customerName || row.customerId}</span>
+                <VerdictPill verdict={row.verdict} />
               </h2>
               <span className="card-amount nums">{gbp(row.amount)}</span>
             </div>
@@ -260,6 +263,6 @@ export function Queue() {
           Next
         </button>
       </div>
-    </>
+    </div>
   );
 }

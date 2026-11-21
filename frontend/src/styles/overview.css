@@ -1,0 +1,331 @@
+/* Overview pages: dashboard, institutions, runs and how it works.
+   Spacing steps: 4, 8, 12, 16, 24, 32. */
+
+.overview {
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+}
+
+.overview .crumbs {
+  margin: 0 0 var(--space-2);
+}
+.overview h1 {
+  margin: 0 0 var(--space-3);
+}
+.overview .lede {
+  margin: 0 0 var(--space-5);
+}
+.overview > h2,
+.overview .dash-section > h2 {
+  font-size: 24px;
+  margin: var(--space-6) 0 var(--space-3);
+}
+.overview .lede + h2,
+.overview .lede + .dash-section > h2 {
+  margin-top: 0;
+}
+.overview p {
+  margin: 0 0 var(--space-4);
+}
+.overview .page-end {
+  margin: var(--space-5) 0 0;
+}
+
+/* Panels */
+.overview .panel {
+  padding: var(--space-4);
+  margin: 0;
+}
+.overview .panel h2 {
+  font-size: 19px;
+  line-height: 1.25;
+  margin: 0 0 var(--space-3);
+}
+.overview .panel > :last-child,
+.overview .kpi > :last-child,
+.overview .firm-card > :last-child,
+.overview .stat > :last-child,
+.overview .case-card > :last-child {
+  margin-bottom: 0;
+}
+
+/* Headline figures */
+.overview .kpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-3);
+  margin: 0;
+}
+.overview .kpi {
+  display: grid;
+  grid-row: span 3;
+  grid-template-rows: subgrid;
+  row-gap: var(--space-1);
+  align-content: start;
+  padding: var(--space-3) var(--space-4);
+}
+.overview .kpi-label {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+.overview .kpi-value {
+  margin: 0;
+  font-size: 32px;
+  font-weight: 700;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+.overview .kpi-note {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.3;
+  color: var(--secondary);
+}
+
+/* Dashboard grid */
+.overview .dash-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-4);
+  margin-top: var(--space-6);
+}
+.overview .dash-grid .wide {
+  grid-column: 1 / -1;
+}
+
+.overview .bars {
+  font-size: 16px;
+}
+.overview .bar-row {
+  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+  gap: var(--space-3);
+  padding: var(--space-1) 0;
+  border-bottom: 1px solid var(--light);
+}
+.overview .bar-row:last-child {
+  border-bottom: 0;
+}
+.overview .bar-row dd {
+  grid-template-columns: minmax(0, 1fr) 56px;
+  gap: var(--space-2);
+}
+.overview .bar,
+.overview .stack {
+  display: flex;
+  height: 12px;
+  margin: 0;
+  background: var(--light);
+}
+
+/* Tables */
+.overview .table-wrap {
+  overflow-x: auto;
+  margin: 0 0 var(--space-4);
+}
+.overview .panel .table-wrap:last-child {
+  margin-bottom: 0;
+}
+.overview .table-wrap + h2 {
+  margin-top: var(--space-6);
+}
+.overview .data-table {
+  font-size: 16px;
+  line-height: 1.25;
+}
+.overview .data-table th,
+.overview .data-table td {
+  padding: var(--space-2) var(--space-3);
+  vertical-align: middle;
+}
+.overview .data-table th {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--secondary);
+  vertical-align: bottom;
+  border-bottom: 2px solid var(--border);
+}
+.overview .data-table th:first-child,
+.overview .data-table td:first-child {
+  padding-left: 0;
+}
+.overview .data-table th:last-child,
+.overview .data-table td:last-child {
+  padding-right: 0;
+}
+.overview .data-table .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.overview .data-table .mix {
+  width: 25%;
+  min-width: 96px;
+}
+.overview .data-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+.overview .data-table tr.total td {
+  font-weight: 700;
+  border-top: 2px solid var(--border);
+}
+.overview .panel .data-table {
+  background: transparent;
+}
+.overview.how .table-wrap {
+  background: var(--white);
+  border: 1px solid var(--border);
+  padding: var(--space-2) var(--space-4);
+}
+
+/* Institutions */
+.overview .firm-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+.overview .firm-card {
+  display: flex;
+  flex-direction: column;
+  border-top: 5px solid var(--blue);
+  padding: var(--space-3) var(--space-4) var(--space-4);
+}
+.overview .firm-card h2 {
+  font-size: 19px;
+  line-height: 1.25;
+  margin: 0 0 var(--space-3);
+}
+.overview .firm-card .kpi-value {
+  margin: var(--space-1) 0 var(--space-2);
+}
+.overview .firm-card .stack {
+  margin-bottom: var(--space-2);
+}
+.overview .firm-sub {
+  margin: var(--space-4) 0 var(--space-1);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--secondary);
+}
+.overview .reason-counts {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: 16px;
+}
+.overview .reason-counts li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) 0;
+}
+.overview .reason-counts .code-tag {
+  margin: 0;
+}
+.overview .reason-counts .nums {
+  text-align: right;
+}
+
+/* Runs */
+.overview .toolbar {
+  margin: 0 0 var(--space-3);
+  gap: var(--space-2);
+}
+.overview .run-progress {
+  margin: 0 0 var(--space-4);
+}
+.overview .stat-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-3);
+  margin: 0 0 var(--space-5);
+}
+.overview .stat {
+  border-top: 5px solid var(--blue);
+  padding: var(--space-3) var(--space-4);
+}
+.overview .stat.close {
+  border-top-color: var(--green);
+}
+.overview .stat.rfi {
+  border-top-color: var(--orange);
+}
+.overview .stat.escalate {
+  border-top-color: var(--red);
+}
+.overview .stat .kpi-label {
+  margin-bottom: var(--space-1);
+}
+.overview .stat.job .kpi-value {
+  font-size: 19px;
+  line-height: 1.85;
+  overflow-wrap: anywhere;
+}
+.overview .cards {
+  gap: var(--space-2);
+  margin: 0 0 var(--space-5);
+}
+.overview .case-card {
+  padding: var(--space-3) var(--space-4);
+}
+.overview .case-card .reason-line {
+  margin: var(--space-2) 0;
+  font-size: 16px;
+}
+.overview .case-card .code-tag {
+  margin: 0;
+}
+.overview.runs .panel {
+  margin: 0 0 var(--space-5);
+}
+.overview .log-lines {
+  margin: 0;
+  padding-left: var(--space-5);
+  font-size: 16px;
+}
+.overview .log-lines li + li {
+  margin-top: var(--space-1);
+}
+
+/* How it works */
+.overview.how > p {
+  max-width: 44em;
+}
+.overview.how > p.meta {
+  margin-top: 0;
+  font-size: 14px;
+}
+
+@media (min-width: 960px) {
+  .overview .dash-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1100px) {
+  .overview .firm-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .overview .kpis,
+  .overview .stat-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 480px) {
+  .overview .firm-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .overview .kpi-value {
+    font-size: 28px;
+  }
+}

@@ -74,7 +74,7 @@ export function Runs() {
   const seen = counts.CLOSE + counts.RFI + counts.ESCALATE;
 
   return (
-    <>
+    <div className="overview runs">
       <p className="crumbs">Forge / Runs</p>
       <h1>Batch runs</h1>
       <p className="lede">
@@ -117,44 +117,44 @@ export function Runs() {
           Replay stored output
         </button>
       </div>
-      <div className="bar" aria-hidden="true" style={{ marginBottom: 15 }}>
-        <span
-          style={{ width: `${Math.min(100, (seen / 1000) * 100)}%`, background: "var(--blue)" }}
-        />
-      </div>
+      <span className="bar run-progress" aria-hidden="true">
+        <i style={{ width: `${Math.min(100, (seen / 1000) * 100)}%` }} />
+      </span>
       <div className="stat-grid">
         {(["CLOSE", "RFI", "ESCALATE"] as const).map((verdict) => (
-          <article className="stat" key={verdict}>
-            <p className="caption">
+          <article className={`stat ${verdict.toLowerCase()}`} key={verdict}>
+            <p className="kpi-label">
               {verdict === "CLOSE" ? "Close" : verdict === "RFI" ? "RFI" : "Escalate"}
             </p>
-            <strong>{counts[verdict].toLocaleString("en-GB")}</strong>
+            <p className="kpi-value nums">{counts[verdict].toLocaleString("en-GB")}</p>
           </article>
         ))}
-        <article className="stat">
-          <p className="caption">Job</p>
-          <strong className="nums">{jobId || "—"}</strong>
+        <article className="stat job">
+          <p className="kpi-label">Job</p>
+          <p className="kpi-value nums">{jobId || "—"}</p>
         </article>
       </div>
-      <div className="cards">
-        {arrived.map((item) => (
-          <article className={`case-card ${item.verdict.toLowerCase()}`} key={item.caseId}>
-            <div className="card-top">
-              <h2 className="nums">
-                {item.caseId} <VerdictPill verdict={item.verdict} />
-              </h2>
-            </div>
-            <p className="reason-line">
-              {(item.reason || item.reasonCode).split(/(?<=[.!?])\s/)[0]}
-            </p>
-            <span className="code-tag">{item.reasonCode}</span>
-          </article>
-        ))}
-      </div>
+      {arrived.length ? (
+        <div className="cards">
+          {arrived.map((item) => (
+            <article className={`case-card ${item.verdict.toLowerCase()}`} key={item.caseId}>
+              <div className="card-top">
+                <h2 className="nums">
+                  {item.caseId} <VerdictPill verdict={item.verdict} />
+                </h2>
+              </div>
+              <p className="reason-line">
+                {(item.reason || item.reasonCode).split(/(?<=[.!?])\s/)[0]}
+              </p>
+              <span className="code-tag">{item.reasonCode}</span>
+            </article>
+          ))}
+        </div>
+      ) : null}
       {log.length ? (
         <section className="panel">
           <h2>Job log</h2>
-          <ul>
+          <ul className="log-lines">
             {log.map((line, index) => (
               <li key={`${index}-${line}`}>{line}</li>
             ))}
@@ -165,33 +165,35 @@ export function Runs() {
       {jobs.length === 0 ? (
         <p>No batch jobs yet.</p>
       ) : (
-        <table>
-          <thead>
-            <tr>
-              <th>Job</th>
-              <th>Firm</th>
-              <th>Mode</th>
-              <th>Started</th>
-              <th>Finished</th>
-              <th>Status</th>
-              <th>Cases</th>
-            </tr>
-          </thead>
-          <tbody>
-            {jobs.map((job) => (
-              <tr key={job.id}>
-                <td className="nums">{job.id}</td>
-                <td>{labelFor(job.institution)}</td>
-                <td>{job.mode}</td>
-                <td>{when(job.startedAt)}</td>
-                <td>{job.finishedAt ? when(job.finishedAt) : "—"}</td>
-                <td>{job.status}</td>
-                <td className="nums">{job.cases.toLocaleString("en-GB")}</td>
+        <div className="table-wrap">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Job</th>
+                <th>Firm</th>
+                <th>Mode</th>
+                <th>Started</th>
+                <th>Finished</th>
+                <th>Status</th>
+                <th className="num">Cases</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {jobs.map((job) => (
+                <tr key={job.id}>
+                  <td className="nums">{job.id}</td>
+                  <td>{labelFor(job.institution)}</td>
+                  <td>{job.mode}</td>
+                  <td>{when(job.startedAt)}</td>
+                  <td>{job.finishedAt ? when(job.finishedAt) : "—"}</td>
+                  <td>{job.status}</td>
+                  <td className="num nums">{job.cases.toLocaleString("en-GB")}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
-    </>
+    </div>
   );
 }
