@@ -154,3 +154,11 @@ A wrong close costs ten. Each close path was counted on the development book and
 The till-sheet path was the weak one. Matching figures on any sheet filed for the customer was enough, so a librarian with a festival reconciliation that happened to use the same amounts would have closed. The sheet now has to name the customer, or share a word with their occupation, business or employer. Generic sheet words (cash, takings, gate, report) do not count. All 84 development closes still meet that test: the festival sheets say “festival”, which is the customer’s business, and the market traders’ takings books say “market”. An unrelated sheet with the same amounts now escalates. No development verdict moved.
 
 The engine source does not key on development case ids, customer names, or one-off amounts. A development brand that had been listed next to the generic words for a crypto desk was removed; the generic word “exchange” still covers that pattern, and rescoring changed nothing. Synthetic cases, not development rows, cover each close, request and escalation in `tests/test_sop_paths.py`.
+
+## Own-account sum, third parties, dissolved payers
+
+The five-times test was using the largest single own-name transfer. A payments case whose receipts totalled 6.1 times the declared monthly volume was closed because the largest receipt alone was 4.9 times. The test now uses the alert’s measured multiple and the larger of inbound or outbound own-name money, so a round trip is not counted twice. A close also needs each material transfer on a statement in the customer’s name, in the same direction and for the same amount. The statement that only showed an outbound receipt no longer closes the inbound funding.
+
+An invoice-finance agreement plus a remittance for the same payer is `THIRD_PARTY_DOCUMENTED`. A company register that shows the payer was already dissolved, when the money is then paid on to other people, is `ESC_MULE_ACTIVITY` rather than a plain pass-through.
+
+After rescoring, the four books are 1,127 close, 1,609 ask, 1,264 escalate. The bank book did not change verdict. E-money moved some asks to closes where a document already named the payment, and some asks to escalations where the money was passed on. Payments lost the own-account closes whose statements did not cover the inbound funding.

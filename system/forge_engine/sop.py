@@ -14,7 +14,7 @@ from pathlib import Path
 
 from .model import Decision, Finding
 
-ENGINE_VERSION = "forge-sop-3"
+ENGINE_VERSION = "forge-sop-4"
 
 _MONEY = re.compile(r"£\s*([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]+)?|[0-9]+(?:\.[0-9]+)?)")
 _MONTHS = (
@@ -70,6 +70,8 @@ _BOOK_TYPES = {
     "management_accounts",
     "cash_handling_procedure",
 }
+# A facility or a gift names a third party. A one-off sale does not.
+_RELATION_TYPES = {"gift_letter", "factoring_agreement", "remittance_advice"}
 # Words that appear on almost any cash sheet. They do not show the sheet is about this customer.
 _SHEET_NOISE = frozenset(
     {
@@ -287,70 +289,202 @@ def _finding(verdict: str, code: str, alert_id: str, evidence: list[str], senten
     return Finding(verdict, code, (alert_id,), tuple(evidence), sentences)
 
 
-def _own(customer: dict, tx: dict, docs: list[dict], amount: float) -> Finding | None:
-    if not same(tx.get("counterparty_name"), customer.get("name")):
-        return None
-    statements = [
-        doc for doc in docs if doc.get("type") == "bank_statement" and norm(customer.get("name") or "") in doc["norm"]
-    ]
-    evidence = [tx["transaction_id"], customer["customer_id"]]
-    evidence.extend(doc["doc_id"] for doc in statements[:2])
+def _statement_moves(text: str) -> list[tuple[float, str]]:
+    """Amounts on the other account's statement, and the direction they cover here.
+
+    The statement is not this institution's ledger. Money received on that
+    statement left here. Money sent from that statement to the customer arrived here.
+    """
+    chunks = re.split(r"(?<=\.)\s+|(?=\b\d{1,2} [A-Z][a-z]+ \d{4}:)", text or "")
+    moves: list[tuple[float, str]] = []
+    for chunk in chunks:
+        amounts = _amounts(chunk)
+        if not amounts:
+            continue
+        if re.search(r"\breceived\b|\bcredited\b", chunk, re.I):
+            direction = "out"
+        elif re.search(r"to the customer|transfer of .{0,48}\bout\b|\bpaid out\b", chunk, re.I):
+            direction = "in"
+        else:
+            continue
+        moves.extend((amount, direction) for amount in amounts)
+    return moves
+
+
+def _cover_own_transfers(
+    customer: dict, txs: list[dict], docs: list[dict]
+) -> tuple[list[tuple[dict, dict]], list[dict]]:
+    name = norm(customer.get("name") or "")
+    pool: list[tuple[dict, float, str]] = []
+    if len(name) >= 4:
+        for doc in docs:
+            if doc.get("type") != "bank_statement" or name not in doc["norm"]:
+                continue
+            for amount, direction in _statement_moves(doc.get("text") or ""):
+                pool.append((doc, amount, direction))
+    covered: list[tuple[dict, dict]] = []
+    missing: list[dict] = []
+    used: set[int] = set()
+    ordered = sorted(txs, key=lambda tx: float(tx.get("amount_gbp") or 0), reverse=True)
+    for tx in ordered:
+        amount = float(tx.get("amount_gbp") or 0)
+        direction = tx.get("direction") or ""
+        match: tuple[dict, float, str] | None = None
+        match_at = -1
+        for index, item in enumerate(pool):
+            if index in used:
+                continue
+            if item[2] == direction and _near(amount, item[1], 0.02):
+                match = item
+                match_at = index
+                break
+        if match is None:
+            missing.append(tx)
+            continue
+        used.add(match_at)
+        covered.append((tx, match[0]))
+    return covered, missing
+
+
+def _one_way(own_txs: list[dict]) -> float:
+    """In and out of the same money is one movement, not two.
+
+    Two inbound transfers still add. A round trip does not.
+    """
+    inbound = sum(float(tx.get("amount_gbp") or 0) for tx in own_txs if tx.get("direction") != "out")
+    outbound = sum(float(tx.get("amount_gbp") or 0) for tx in own_txs if tx.get("direction") == "out")
+    return max(inbound, outbound)
+
+
+def _material(own_txs: list[dict], one_way: float) -> list[dict]:
+    """Small residuals are not the transfer a close is allowed to rest on."""
+    floor = min(500.0, one_way * 0.1) if one_way else 500.0
+    return [tx for tx in own_txs if float(tx.get("amount_gbp") or 0) + 0.01 >= floor]
+
+
+def _own_multiple(customer: dict, own_txs: list[dict], measured: dict) -> float:
     monthly = _baseline(customer)
+    from_sum = _one_way(own_txs) / monthly if monthly else 0.0
+    raw = measured.get("multiple")
+    try:
+        measured_multiple = float(raw) if raw is not None else 0.0
+    except (TypeError, ValueError):
+        measured_multiple = 0.0
+    return max(from_sum, measured_multiple)
+
+
+def _own_transfers(customer: dict, own_txs: list[dict], docs: list[dict], measured: dict) -> Finding | None:
+    """Own-account rule for every own-name transfer on the alert, not the largest one.
+
+    At or above five times declared monthly income or volume, ask for an updated
+    profile. Below that, close only when each transfer is on a statement in the
+    customer's name, with the same direction and the same amount.
+    """
+    if not own_txs:
+        return None
+    monthly = _baseline(customer)
+    one_way = _one_way(own_txs)
+    multiple = _own_multiple(customer, own_txs, measured)
     who = customer.get("name") or "the customer"
-    if monthly and amount >= 5 * monthly - 0.01:
+    material = _material(own_txs, one_way) or list(own_txs)
+    tx_ids = [tx["transaction_id"] for tx in material]
+    named_statements = [
+        doc for doc in docs if doc.get("type") == "bank_statement" and norm(who) in doc["norm"] and len(norm(who)) >= 4
+    ]
+    refund_hits: list[tuple[dict, dict]] = []
+    refund_gap = 0.0
+    for tx in material:
+        amount = float(tx.get("amount_gbp") or 0)
+        match = next(
+            (
+                doc
+                for doc in docs
+                if doc.get("type") in {"cancellation_confirmation", "credit_note"}
+                and any(_near(amount, candidate, 0.02) for candidate in doc["amounts"])
+            ),
+            None,
+        )
+        if match is None:
+            refund_gap += amount
+        else:
+            refund_hits.append((tx, match))
+    if refund_hits and refund_gap <= 0.15 * max(one_way, 1.0):
+        doc = refund_hits[0][1]
+        return _finding(
+            "CLOSE",
+            "REFUND_OF_EARLIER_PAYMENT",
+            "",
+            [*(tx["transaction_id"] for tx, _ in refund_hits), doc["doc_id"]],
+            (
+                f"{who} moved {money(one_way)} back to an account in their own name.",
+                f"Document {doc['doc_id']} ({doc['title']}) confirms that {money(one_way)} is the return of"
+                f" an earlier payment, so a fresh source-of-funds statement is not required.",
+            ),
+        )
+    if monthly and multiple >= 5 - 1e-9:
         return _finding(
             "RFI",
             "RFI_UPDATED_PROFILE",
             "",
-            evidence,
+            [*tx_ids, customer.get("customer_id") or "", *[doc["doc_id"] for doc in named_statements[:2]]],
             (
-                f"{who} moved {money(amount)} between accounts in their own name.",
-                f"That is at least five times the declared monthly amount of {money(monthly)}. Ask the"
-                f" customer for an updated expected income or turnover before this can be closed.",
+                f"{who} moved {money(one_way)} between accounts in their own name, {multiple:.2f} times"
+                f" the declared monthly amount of {money(monthly)}.",
+                "Ask the customer for an updated expected income or turnover before this can be closed.",
             ),
         )
-    if not statements:
-        refunds = [
-            doc
-            for doc in docs
-            if doc.get("type") in {"cancellation_confirmation", "credit_note"}
-            and any(_near(amount, candidate, 0.02) for candidate in doc["amounts"])
-        ]
-        if refunds:
-            doc = refunds[0]
-            return _finding(
-                "CLOSE",
-                "REFUND_OF_EARLIER_PAYMENT",
-                "",
-                [tx["transaction_id"], doc["doc_id"]],
-                (
-                    f"{who} moved {money(amount)} back to an account in their own name.",
-                    f"Document {doc['doc_id']} ({doc['title']}) confirms that {money(amount)} is the return of"
-                    f" an earlier payment, so a fresh source-of-funds statement is not required.",
-                ),
-            )
+    covered, missing = _cover_own_transfers(customer, material, docs)
+    if covered and not missing:
+        cited: list[str] = []
+        for _, doc in covered:
+            if doc["doc_id"] not in cited:
+                cited.append(doc["doc_id"])
+        shown = ", ".join(cited[:3])
+        lead = "Statement" if len(cited) == 1 else "Statements"
+        verb = "covers" if len(cited) == 1 else "cover"
         return _finding(
-            "RFI",
-            "RFI_SOURCE_OF_FUNDS",
+            "CLOSE",
+            "OWN_ACCOUNT",
             "",
-            [tx["transaction_id"]],
+            [*tx_ids, *cited],
             (
-                f"{who} is named on a transfer of {money(amount)}, but no statement on file shows they hold the other account.",
-                f"Ask the customer for a statement in their name covering {money(amount)}.",
+                f"{who} moved {money(one_way)} between accounts in their own name.",
+                f"{lead} {shown} {verb} each transfer in their name, in the same direction and for the same amount."
+                + (
+                    f" The total is below five times the declared monthly amount of {money(monthly)}."
+                    if monthly
+                    else " The institution's own-account rule explains the movement."
+                ),
             ),
         )
+    gap = max(missing, key=lambda tx: float(tx.get("amount_gbp") or 0)) if missing else material[0]
+    gap_amount = float(gap.get("amount_gbp") or 0)
     return _finding(
-        "CLOSE",
-        "OWN_ACCOUNT",
+        "RFI",
+        "RFI_SOURCE_OF_FUNDS",
         "",
-        evidence,
+        [gap["transaction_id"]],
         (
-            f"{who} moved {money(amount)} and statement {statements[0]['doc_id']} shows the account is held in their name.",
-            f"The amount is below five times the declared monthly amount of {money(monthly)}."
-            if monthly
-            else "The institution's own-account rule explains the movement.",
+            f"{who} is named on a transfer of {money(gap_amount)}, but no statement on file shows that amount"
+            f" {'arriving from' if gap.get('direction') == 'in' else 'leaving to'} an account they hold.",
+            f"Ask the customer for a statement in their name covering {money(gap_amount)}, including the direction.",
         ),
     )
+
+
+def _dissolved_funder(book: Book, customer: dict, txs: list[dict]) -> tuple[dict, str] | None:
+    registers = _docs_of(book, customer["customer_id"], {"company_register_extract"})
+    for tx in txs:
+        if tx.get("direction") != "in":
+            continue
+        party = tx.get("counterparty_name") or ""
+        party_norm = norm(party)
+        if not party_norm or same(party, customer.get("name")) or not _COMPANY.search(party):
+            continue
+        for doc in registers:
+            if party_norm in doc["norm"] and re.search(r"\bdissolved\b", doc.get("text") or "", re.I):
+                return doc, party
+    return None
 
 
 def _list_decision(book: Book, alert: dict, customer: dict, docs: list[dict], txs: list[dict]) -> Finding:
@@ -444,7 +578,7 @@ def _code_for_doc(doc: dict) -> str:
     kind = doc.get("type") or ""
     if kind == "group_structure":
         return "GROUP_COMPANY"
-    if kind == "gift_letter":
+    if kind in _RELATION_TYPES:
         return "THIRD_PARTY_DOCUMENTED"
     if kind == "credit_note":
         return "REFUND_OF_EARLIER_PAYMENT"
@@ -485,11 +619,20 @@ def _explain_flow(book: Book, alert: dict, customer: dict, txs: list[dict]) -> F
                 if any(_near(amount, candidate, 0.02) for candidate in doc["amounts"]):
                     matched, code = doc["doc_id"], _code_for_doc(doc)
                     break
-            elif (
-                (not party_norm or same(party, customer.get("name"))) and customer_norm and customer_norm in doc["norm"]
-            ) and any(_near(amount, candidate, 0.02) for candidate in doc["amounts"]):
-                matched, code = doc["doc_id"], _code_for_doc(doc)
-                break
+            elif (not party_norm or same(party, customer.get("name"))) and customer_norm and customer_norm in doc["norm"]:
+                if doc.get("type") == "bank_statement":
+                    direction = tx.get("direction") or ""
+                    covered_line = any(
+                        stated_direction == direction and _near(amount, stated, 0.02)
+                        for stated, stated_direction in _statement_moves(doc.get("text") or "")
+                    )
+                    if not covered_line:
+                        continue
+                    matched, code = doc["doc_id"], "OWN_ACCOUNT"
+                    break
+                if any(_near(amount, candidate, 0.02) for candidate in doc["amounts"]):
+                    matched, code = doc["doc_id"], _code_for_doc(doc)
+                    break
         if matched is None:
             for review in reviews:
                 if _review_covers(review.get("note") or "", party, amount):
@@ -508,6 +651,12 @@ def _explain_flow(book: Book, alert: dict, customer: dict, txs: list[dict]) -> F
         for _, item_id, _ in explained:
             if item_id not in cited:
                 cited.append(item_id)
+        party_norm = norm(tx.get("counterparty_name"))
+        for doc in docs:
+            if doc["doc_id"] in cited or doc["doc_id"] == doc_id:
+                continue
+            if doc.get("type") == "factoring_agreement" and party_norm and party_norm in doc["norm"]:
+                cited.append(doc["doc_id"])
         cited_ids = [alert["alert_id"], doc_id, tx["transaction_id"], *cited]
         shown = ", ".join(cited[:3])
         lead = "Document" if len(cited) == 1 else "Documents"
@@ -762,15 +911,24 @@ def _explain(book: Book, alert: dict, customer: dict) -> Finding:
                 ),
             )
 
-    # Own-account explanation for the largest non-card movement in the alert.
+    # Own-account only when those transfers are most of the alert. A small top-up
+    # must not hide a pass-through, and the five-times test uses the sum.
     own_txs = [
         tx for tx in txs if same(tx.get("counterparty_name"), customer.get("name")) and tx.get("channel") != "card"
     ]
     if own_txs and rule in {"TM01", "TM02", "TM07", "TM08"}:
-        amount = max(tx.get("amount_gbp") or 0 for tx in own_txs)
-        found = _own(customer, own_txs[0], docs, amount)
-        if found and (rule != "TM01" or amount >= 0.5 * float(measured.get("received_gbp") or amount)):
-            return Finding(found.verdict, found.code, (alert["alert_id"],), found.evidence_ids, found.sentences)
+        others = [
+            tx
+            for tx in txs
+            if tx.get("channel") != "card" and not same(tx.get("counterparty_name"), customer.get("name"))
+        ]
+        other_sum = sum(float(tx.get("amount_gbp") or 0) for tx in others)
+        movement = sum(float(tx.get("amount_gbp") or 0) for tx in txs if tx.get("channel") != "card") or other_sum
+        # A third-party payment that is a real part of the alert is not an own-account story.
+        if movement <= 0 or other_sum <= 0.2 * movement:
+            found = _own_transfers(customer, own_txs, docs, measured)
+            if found:
+                return Finding(found.verdict, found.code, (alert["alert_id"],), found.evidence_ids, found.sentences)
 
     if rule == "TM08":
         groups = _docs_of(book, customer["customer_id"], {"group_structure"})
@@ -819,20 +977,36 @@ def _explain(book: Book, alert: dict, customer: dict) -> Finding:
                 code = "INVOICE_MATCHES"
             elif doc.get("type") in _BOOK_TYPES:
                 code = "BUSINESS_RECORDS_RECONCILE"
-            elif doc.get("type") == "gift_letter":
+            elif doc.get("type") in _RELATION_TYPES:
                 code = "THIRD_PARTY_DOCUMENTED"
             elif doc.get("type") == "credit_note":
                 code = "REFUND_OF_EARLIER_PAYMENT"
             else:
                 code = "DOCUMENTED_EVENT"
+            party = focus.get("counterparty_name") or customer.get("name") or ""
+            related = []
+            if doc.get("type") in {"factoring_agreement", "remittance_advice"}:
+                for item in docs:
+                    if item["doc_id"] == doc["doc_id"]:
+                        continue
+                    if item.get("type") in {"factoring_agreement", "remittance_advice"} and norm(party) in item["norm"]:
+                        related.append(item)
+            if related:
+                other = related[0]
+                second = (
+                    f"Document {doc['doc_id']} ({doc['title']}) matches {money(amount)}, and {other['doc_id']}"
+                    f" ({other['title']}) records the relationship with {party}."
+                )
+            else:
+                second = f"Document {doc['doc_id']} ({doc['title']}) matches that amount and is the ground for closing it."
             return _finding(
                 "CLOSE",
                 code,
                 alert["alert_id"],
-                [alert["alert_id"], doc["doc_id"], focus["transaction_id"]],
+                [alert["alert_id"], doc["doc_id"], *[item["doc_id"] for item in related[:2]], focus["transaction_id"]],
                 (
-                    f"Alert {alert['alert_id']} includes {money(amount)} with {focus.get('counterparty_name') or customer.get('name')}.",
-                    f"Document {doc['doc_id']} ({doc['title']}) matches that amount and is the ground for closing it.",
+                    f"Alert {alert['alert_id']} includes {money(amount)} with {party}.",
+                    second,
                 ),
             )
         if rule == "TM01":
@@ -851,6 +1025,21 @@ def _explain(book: Book, alert: dict, customer: dict) -> Finding:
         if rule == "TM02":
             if flow is not None:
                 return flow
+            dissolved = _dissolved_funder(book, customer, txs)
+            if dissolved:
+                register, party = dissolved
+                return _finding(
+                    "ESCALATE",
+                    "ESC_MULE_ACTIVITY",
+                    alert["alert_id"],
+                    [alert["alert_id"], register["doc_id"], *[tx["transaction_id"] for tx in txs[:6]]],
+                    (
+                        f"Alert {alert['alert_id']} received {money(measured.get('received_gbp'))} and paid out"
+                        f" {money(measured.get('paid_out_gbp'))} within 48 hours, {measured.get('share')} of what arrived.",
+                        f"Register {register['doc_id']} shows {party} was dissolved, so this is not"
+                        f" {customer.get('name')}'s own business. The money was passed on and is escalated.",
+                    ),
+                )
             return _finding(
                 "ESCALATE",
                 "ESC_PASS_THROUGH",

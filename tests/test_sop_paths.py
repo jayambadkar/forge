@@ -102,7 +102,16 @@ def test_close_request_and_escalate_paths(tmp_path: Path):
         _customer("C-OWN", "Ada North"),
         _alert("A-OWN", "TM01", ["T-OWN"], {"received_gbp": 3000, "baseline_gbp": 2000, "multiple": 1.5}),
         [_tx("T-OWN", "C-OWN", 3000, "Ada North")],
-        [_doc(folder, "STM-OWN", "C-OWN", "bank_statement", "Statement for Ada North", "Account held by Ada North.")],
+        [
+            _doc(
+                folder,
+                "STM-OWN",
+                "C-OWN",
+                "bank_statement",
+                "Statement for Ada North",
+                "1 June 2026: transfer of £3,000.00 to the customer's UK account. The account is held by Ada North.",
+            )
+        ],
     )
     add(
         _customer("C-FIVE", "Bea North", income=1000),
@@ -366,6 +375,189 @@ def test_close_request_and_escalate_paths(tmp_path: Path):
     expect("C-EARLY", "ESCALATE", "ESC_EARLY_REDEMPTION")
     expect("C-RED", "CLOSE", "DOCUMENTED_EVENT")
     expect("C-ASK", "RFI", "RFI_COUNTERPARTY_DETAILS")
+
+
+def test_own_account_uses_the_sum_and_the_statement_direction(tmp_path: Path):
+    folder = tmp_path / "payments_fx"
+    customers, alerts, txs, cases, docs = [], [], [], [], []
+
+    def add(customer, alert, transactions, documents):
+        customers.append(customer)
+        alerts.append(alert)
+        txs.extend(transactions)
+        cases.append(_case(customer["customer_id"].replace("C", "CASE"), customer["customer_id"], [alert["alert_id"]]))
+        docs.extend(documents)
+
+    # Largest transfer is under five times. The sum, and the measured multiple, are not.
+    # The only statement is an outbound receipt, not the inbound funding.
+    add(
+        _customer("C-SUM", "North Imports Ltd", kind="business", income=4000),
+        _alert(
+            "A-SUM",
+            "TM01",
+            ["T-SUM-1", "T-SUM-2", "T-SUM-3", "T-SUM-4", "T-SUM-5", "T-SUM-6"],
+            {"received_gbp": 24000, "baseline_gbp": 4000, "multiple": 6.0},
+        ),
+        [
+            _tx("T-SUM-1", "C-SUM", 19000, "North Imports Ltd"),
+            _tx("T-SUM-2", "C-SUM", 1000, "North Imports Ltd"),
+            _tx("T-SUM-3", "C-SUM", 1000, "North Imports Ltd"),
+            _tx("T-SUM-4", "C-SUM", 1000, "North Imports Ltd"),
+            _tx("T-SUM-5", "C-SUM", 1000, "North Imports Ltd"),
+            _tx("T-SUM-6", "C-SUM", 1000, "North Imports Ltd"),
+        ],
+        [
+            _doc(
+                folder,
+                "STM-SUM",
+                "C-SUM",
+                "bank_statement",
+                "Statement for North Imports Ltd",
+                "19 October 2026: received £18,000.00 from the payments firm, sent by North Imports Ltd. "
+                "The account is held by North Imports Ltd.",
+            )
+        ],
+    )
+    add(
+        _customer("C-FIT", "South Imports Ltd", kind="business", income=8000),
+        _alert(
+            "A-FIT",
+            "TM01",
+            ["T-FIT-1", "T-FIT-2"],
+            {"received_gbp": 2500, "baseline_gbp": 8000, "multiple": 0.31},
+        ),
+        [
+            _tx("T-FIT-1", "C-FIT", 1000, "South Imports Ltd"),
+            _tx("T-FIT-2", "C-FIT", 1500, "South Imports Ltd"),
+        ],
+        [
+            _doc(
+                folder,
+                "STM-FIT",
+                "C-FIT",
+                "bank_statement",
+                "Statement for South Imports Ltd",
+                "1 June 2026: transfer of £1,000.00 to the customer's UK account. "
+                "2 June 2026: transfer of £1,500.00 to the customer's UK account. "
+                "The account is held by South Imports Ltd.",
+            )
+        ],
+    )
+    add(
+        _customer("C-DIR", "East Imports Ltd", kind="business", income=8000),
+        _alert("A-DIR", "TM01", ["T-DIR"], {"received_gbp": 1000, "baseline_gbp": 8000, "multiple": 0.13}),
+        [_tx("T-DIR", "C-DIR", 1000, "East Imports Ltd")],
+        [
+            _doc(
+                folder,
+                "STM-DIR",
+                "C-DIR",
+                "bank_statement",
+                "Statement for East Imports Ltd",
+                "1 June 2026: received £1,000.00 into the savings account. The account is held by East Imports Ltd.",
+            )
+        ],
+    )
+    _write(folder, "customers.jsonl", customers)
+    _write(folder, "alerts.jsonl", alerts)
+    _write(folder, "transactions.jsonl", txs)
+    _write(folder, "cases.jsonl", cases)
+    _write(folder, "evidence.jsonl", docs)
+    _write(folder, "previous_reviews.jsonl", [])
+    _write(folder, "internal_list.jsonl", [])
+    decided = _score(folder)
+
+    over = decided["CASE-SUM"]
+    assert over.verdict == "RFI", over.reason
+    assert over.reason_code == "RFI_UPDATED_PROFILE"
+    assert "24,000.00" in over.reason
+    assert "STM-SUM" in over.evidence
+
+    fit = decided["CASE-FIT"]
+    assert fit.verdict == "CLOSE", fit.reason
+    assert fit.reason_code == "OWN_ACCOUNT"
+    assert "STM-FIT" in fit.evidence
+
+    wrong_way = decided["CASE-DIR"]
+    assert wrong_way.verdict == "RFI", wrong_way.reason
+    assert wrong_way.reason_code == "RFI_SOURCE_OF_FUNDS"
+
+
+def test_invoice_finance_is_a_documented_third_party(tmp_path: Path):
+    folder = tmp_path / "payments_fx"
+    customer = _customer("C-FAC", "Harbour Supplies Ltd", kind="business", income=20000)
+    alert = _alert(
+        "A-FAC",
+        "TM08",
+        ["T-FAC"],
+        {"flows": 1, "total_gbp": 8500, "limit_gbp": 1000},
+    )
+    tx = _tx("T-FAC", "C-FAC", 8500, "Plain Invoice Finance Ltd")
+    agreement = _doc(
+        folder,
+        "FAC-1",
+        "C-FAC",
+        "factoring_agreement",
+        "Invoice finance agreement with Plain Invoice Finance Ltd",
+        "Plain Invoice Finance Ltd advances 85% of approved invoices into the account of Harbour Supplies Ltd.",
+    )
+    remittance = _doc(
+        folder,
+        "RMT-1",
+        "C-FAC",
+        "remittance_advice",
+        "Remittance advice from Plain Invoice Finance Ltd",
+        "Advance at 85%: £8,500.00 for Harbour Supplies Ltd.",
+    )
+    _write(folder, "customers.jsonl", [customer])
+    _write(folder, "alerts.jsonl", [alert])
+    _write(folder, "transactions.jsonl", [tx])
+    _write(folder, "cases.jsonl", [_case("CASE-FAC", "C-FAC", ["A-FAC"])])
+    _write(folder, "evidence.jsonl", [agreement, remittance])
+    _write(folder, "previous_reviews.jsonl", [])
+    _write(folder, "internal_list.jsonl", [])
+    decided = _score(folder)["CASE-FAC"]
+    assert decided.verdict == "CLOSE", decided.reason
+    assert decided.reason_code == "THIRD_PARTY_DOCUMENTED"
+    assert "FAC-1" in decided.evidence
+    assert "RMT-1" in decided.evidence
+
+
+def test_dissolved_company_funds_passed_on_are_mule_activity(tmp_path: Path):
+    folder = tmp_path / "emoney"
+    customer = _customer("C-DIS", "Marley Orth", occupation="Care worker")
+    alert = _alert(
+        "A-DIS",
+        "TM02",
+        ["T-IN-1", "T-IN-2", "T-OUT-1", "T-OUT-2", "T-OUT-3"],
+        {"received_gbp": 20000, "paid_out_gbp": 18000, "share": 0.9},
+    )
+    transactions = [
+        _tx("T-IN-1", "C-DIS", 10000, "Oldco Trading Ltd"),
+        _tx("T-IN-2", "C-DIS", 10000, "Oldco Trading Ltd"),
+        _tx("T-OUT-1", "C-DIS", 6000, "Pat One", direction="out"),
+        _tx("T-OUT-2", "C-DIS", 6000, "Pat Two", direction="out"),
+        _tx("T-OUT-3", "C-DIS", 6000, "Pat Three", direction="out"),
+    ]
+    register = _doc(
+        folder,
+        "REG-1",
+        "C-DIS",
+        "company_register_extract",
+        "Company register extract for Oldco Trading Ltd",
+        "Company: Oldco Trading Ltd. Status: Dissolved on 19 September 2025.",
+    )
+    _write(folder, "customers.jsonl", [customer])
+    _write(folder, "alerts.jsonl", [alert])
+    _write(folder, "transactions.jsonl", transactions)
+    _write(folder, "cases.jsonl", [_case("CASE-DIS", "C-DIS", ["A-DIS"])])
+    _write(folder, "evidence.jsonl", [register])
+    _write(folder, "previous_reviews.jsonl", [])
+    _write(folder, "internal_list.jsonl", [])
+    decided = _score(folder)["CASE-DIS"]
+    assert decided.verdict == "ESCALATE", decided.reason
+    assert decided.reason_code == "ESC_MULE_ACTIVITY", decided.reason
+    assert "REG-1" in decided.evidence
 
 
 def test_invoice_mismatch_needs_the_payments_firm(tmp_path: Path):
