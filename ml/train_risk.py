@@ -22,7 +22,7 @@ from lightgbm import LGBMClassifier, early_stopping, log_evaluation
 from sklearn.ensemble import ExtraTreesClassifier
 from sklearn.isotonic import IsotonicRegression
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import confusion_matrix
+from sklearn.metrics import confusion_matrix, f1_score
 from sklearn.model_selection import LeaveOneGroupOut, StratifiedGroupKFold
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
@@ -31,7 +31,15 @@ from xgboost import XGBClassifier
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "system"))
 
-from forge_engine.sop import Book, norm, score_folder  # noqa: E402
+from forge_engine.sop import (  # noqa: E402
+    Book,
+    _baseline,
+    _cover_own_transfers,
+    _near,
+    _own_multiple,
+    norm,
+    score_folder,
+)
 
 BOOKS = ("bank", "emoney", "investment", "payments_fx")
 DATA = Path("/tmp/hackathon-fetch/hackathon/institutions")
@@ -92,6 +100,154 @@ GROUPS: dict[str, tuple[str, ...]] = {
 }
 # Dropped under the smaller model. They did not earn a place once the other groups were present.
 DROPPED_GROUPS = ("customer", "account_history", "list_agreement")
+
+
+# Facts that read the same at every firm. Document types are folded into kinds,
+# so a firm with its own paperwork still lands on known columns.
+RULES = ("TM01", "TM02", "TM03", "TM04", "TM05", "TM06", "TM07", "TM08", "TM10", "TM22")
+DOC_KINDS: dict[str, frozenset[str]] = {
+    "statement": frozenset({"bank_statement"}),
+    "invoice": frozenset(
+        {
+            "invoice",
+            "supplier_invoice",
+            "supplier_invoices",
+            "consulting_contract",
+            "supply_contract",
+            "contract_schedule",
+            "purchase_order",
+            "payment_file",
+            "dealer_invoice",
+            "hospital_invoice",
+            "carrier_invoice",
+            "freight_invoices",
+        }
+    ),
+    "books": frozenset(
+        {
+            "cash_collection_reports",
+            "cash_reconciliation",
+            "takings_book",
+            "ticket_report",
+            "management_accounts",
+            "cash_handling_procedure",
+        }
+    ),
+    "relation": frozenset({"gift_letter", "factoring_agreement", "remittance_advice", "group_structure", "loan_agreement"}),
+    "refund": frozenset({"credit_note", "cancellation_confirmation", "deposit_return_letter"}),
+    "register": frozenset({"company_register_extract", "significant_control_register"}),
+    "fraud": frozenset({"sending_bank_fraud_report"}),
+    "device": frozenset({"device_export"}),
+}
+NOT_SUPPORT = frozenset({"staff_note", "reverification_record", "advert"})
+SUPPORT_KINDS = ("statement", "invoice", "books", "relation", "refund", "event")
+# Counts and sizes move with each firm's book. The desk model leaves them out.
+SCALE_FEATURES = frozenset(
+    {
+        "n_docs",
+        "log_doc_chars",
+        "n_doc_types",
+        "log_sum_in",
+        "log_sum_out",
+        "log_max",
+        "n_prior_reviews",
+        "n_tx",
+        "n_in",
+        "n_out",
+        "n_counterparties",
+        "n_person_out",
+        "n_alerts",
+    }
+)
+
+
+def _kind(doc_type: str) -> str:
+    for kind, members in DOC_KINDS.items():
+        if doc_type in members:
+            return kind
+    return "other" if doc_type in NOT_SUPPORT else "event"
+
+
+def _names_party(doc: dict, tx: dict, customer_name: str) -> bool:
+    party = norm(tx.get("counterparty_name"))
+    return bool(party and party in doc["norm"]) or (len(customer_name) >= 4 and customer_name in doc["norm"])
+
+
+def _evidence(book, case: dict, customer: dict, alerts: list[dict], txs: list[dict], docs: list[dict]) -> dict[str, float]:
+    cname = norm(customer.get("name"))
+    rules = {alert.get("rule_id") for alert in alerts}
+    total = sum(float(tx.get("amount_gbp") or 0) for tx in txs) or 1.0
+    found: dict[str, float] = {f"rule_{rule}": float(rule in rules) for rule in RULES}
+    best_cover = 0.0
+    for kind in (*DOC_KINDS, "event"):
+        kind_docs = [doc for doc in docs if _kind(doc.get("type") or "") == kind]
+        covered = 0.0
+        for tx in txs:
+            amount = float(tx.get("amount_gbp") or 0)
+            if any(
+                _names_party(doc, tx, cname) and any(_near(amount, value, 0.02) for value in doc["amounts"])
+                for doc in kind_docs
+            ):
+                covered += amount
+        found[f"has_{kind}"] = float(bool(kind_docs))
+        found[f"{kind}_names_customer"] = float(any(len(cname) >= 4 and cname in doc["norm"] for doc in kind_docs))
+        found[f"{kind}_value_covered"] = covered / total
+        if kind in SUPPORT_KINDS:
+            best_cover = max(best_cover, covered / total)
+    support = [doc for doc in docs if _kind(doc.get("type") or "") in SUPPORT_KINDS]
+    explained = 0
+    for alert in alerts:
+        alert_txs = [book.transactions[tid] for tid in alert.get("transaction_ids") or [] if tid in book.transactions]
+        if any(
+            _names_party(doc, tx, cname)
+            and any(_near(float(tx.get("amount_gbp") or 0), value, 0.02) for value in doc["amounts"])
+            for tx in alert_txs
+            for doc in support
+        ):
+            explained += 1
+    found["alerts_explained_share"] = explained / len(alerts) if alerts else 0.0
+    found["all_alerts_explained"] = float(bool(alerts) and explained == len(alerts))
+    found["n_rules"] = float(len(rules))
+    # Each movement against its own line on one document.
+    line_cover = 0.0
+    for doc in support:
+        if not any(_names_party(doc, tx, cname) for tx in txs):
+            continue
+        pool = list(doc["amounts"])
+        got = 0.0
+        for tx in txs:
+            amount = float(tx.get("amount_gbp") or 0)
+            index = next((i for i, value in enumerate(pool) if _near(amount, value, 0.01)), None)
+            if index is not None:
+                pool.pop(index)
+                got += amount
+        line_cover = max(line_cover, got / total)
+    found["line_cover"] = line_cover
+    own = [tx for tx in txs if len(cname) >= 4 and norm(tx.get("counterparty_name")) == cname]
+    if own:
+        covered_own, _ = _cover_own_transfers(customer, own, docs)
+        own_total = sum(float(tx.get("amount_gbp") or 0) for tx in own) or 1.0
+        found["own_mirror_share"] = sum(float(tx.get("amount_gbp") or 0) for tx, _ in covered_own) / own_total
+        found["own_multiple"] = min(_own_multiple(customer, own, {}), 50.0) if _baseline(customer) else -1.0
+    else:
+        found["own_mirror_share"] = -1.0
+        found["own_multiple"] = -1.0
+    held = book.transactions.get(case.get("held_payment_id") or "")
+    found["held_third_party_10k"] = float(
+        bool(held) and float(held.get("amount_gbp") or 0) >= 10000 and norm(held.get("counterparty_name")) != cname
+    )
+    found["best_cover"] = best_cover
+    found["any_named"] = max(found[f"{kind}_names_customer"] for kind in SUPPORT_KINDS)
+    found["any_support"] = max(found[f"has_{kind}"] for kind in SUPPORT_KINDS)
+    found["uncovered"] = 1.0 - max(best_cover, line_cover)
+    return found
+
+
+def _can_close(evidence: dict[str, float]) -> bool:
+    """The second check may not close a case with no supporting document of any kind."""
+    if evidence["any_support"] or evidence["best_cover"] > 0 or evidence["line_cover"] > 0:
+        return True
+    return bool(evidence["rule_TM22"] and evidence["register_names_customer"])
 
 
 def _cost(true: str, pred: str) -> int:
@@ -333,6 +489,7 @@ def _rows() -> list[dict]:
                     "reason_code": decision.reason_code,
                     "reason": decision.reason,
                     "features": features,
+                    "evidence": _evidence(book, case, customer, alerts, txs, docs),
                     "composites": composites,
                 }
             )
@@ -353,6 +510,10 @@ def _pack(y_true, y_pred, y_train=None, pred_train=None) -> dict[str, Any]:
         "wrongful_closes": int(wrongful),
         "confusion": {"labels": list(LABELS), "counts": _matrix(y_true, y_pred)},
     }
+    if len(y_true):
+        per_class = f1_score(y_true, y_pred, labels=list(LABELS), average=None, zero_division=0)
+        block["macro_f1"] = round(float(np.mean(per_class)), 4)
+        block["per_class_f1"] = {label: round(float(value), 4) for label, value in zip(LABELS, per_class, strict=True)}
     if y_train is not None and pred_train is not None and len(y_train):
         train_cost = float(np.mean([_cost(t, p) for t, p in zip(y_train, pred_train, strict=False)]))
         block["train_expected_cost"] = round(train_cost, 4)
@@ -729,6 +890,97 @@ def _noise_cost(x: np.ndarray, y: np.ndarray, groups: np.ndarray, params: dict, 
     return round(float(np.mean(costs)), 4)
 
 
+DESK_GRID = (
+    {"num_leaves": 7, "min_child_samples": 20},
+    {"num_leaves": 15, "min_child_samples": 20},
+    {"num_leaves": 31, "min_child_samples": 20},
+    {"num_leaves": 15, "min_child_samples": 50},
+)
+COST = np.array([[_cost(true, pred) for pred in LABELS] for true in LABELS], dtype=float)
+
+
+def _binary(params: dict) -> LGBMClassifier:
+    return LGBMClassifier(
+        n_estimators=300,
+        learning_rate=0.05,
+        subsample=0.8,
+        subsample_freq=1,
+        colsample_bytree=0.8,
+        reg_lambda=1.0,
+        deterministic=True,
+        force_row_wise=True,
+        n_jobs=1,
+        random_state=SEED,
+        verbosity=-1,
+        **params,
+    )
+
+
+class TwoStage:
+    """Close or not first, then request or escalate among the rest."""
+
+    def __init__(self, params: dict):
+        self.params = params
+
+    def fit(self, x: np.ndarray, y: np.ndarray) -> TwoStage:
+        self.close = _binary(self.params).fit(x, (y == "CLOSE").astype(int))
+        rest = y != "CLOSE"
+        self.escalate = _binary(self.params).fit(x[rest], (y[rest] == "ESCALATE").astype(int))
+        return self
+
+    def predict_proba(self, x: np.ndarray) -> np.ndarray:
+        p_close = np.asarray(self.close.predict_proba(x))[:, 1]
+        p_escalate = np.asarray(self.escalate.predict_proba(x))[:, 1]
+        return np.column_stack([p_close, (1 - p_close) * (1 - p_escalate), (1 - p_close) * p_escalate])
+
+
+def _decide(proba: np.ndarray, can_close: np.ndarray) -> np.ndarray:
+    """Lowest expected cost under the scoring matrix, never a close without a document."""
+    risk = proba @ COST
+    risk[~can_close, 0] = np.inf
+    pred = np.empty(len(proba), dtype=object)
+    pred[:] = [LABELS[int(index)] for index in np.argmin(risk, axis=1)]
+    return pred
+
+
+def _desk_xy(rows: list[dict]) -> tuple[list[str], np.ndarray, np.ndarray]:
+    dropped = {member for group in DROPPED_GROUPS for member in GROUPS[group]}
+    raw = [name for name in rows[0]["features"] if name not in SCALE_FEATURES and name not in dropped]
+    extra = list(rows[0]["evidence"])
+    names = raw + [f"e_{name}" for name in extra]
+    x = np.array([[row["features"][n] for n in raw] + [row["evidence"][n] for n in extra] for row in rows], dtype=float)
+    can_close = np.array([_can_close(row["evidence"]) for row in rows])
+    return names, x, can_close
+
+
+def _desk_tune(x: np.ndarray, y: np.ndarray, groups: np.ndarray, can_close: np.ndarray) -> dict:
+    inner = StratifiedGroupKFold(n_splits=3, shuffle=True, random_state=SEED)
+    best: tuple[float, dict] | None = None
+    for params in DESK_GRID:
+        costs = []
+        for train, valid in inner.split(x, y, groups):
+            proba = TwoStage(params).fit(x[train], y[train]).predict_proba(x[valid])
+            pred = _decide(proba, can_close[valid])
+            costs.append(float(np.mean([_cost(t, p) for t, p in zip(y[valid], pred, strict=True)])))
+        if best is None or float(np.mean(costs)) < best[0]:
+            best = (float(np.mean(costs)), params)
+    if best is None:
+        raise RuntimeError("desk grid is empty")
+    return best[1]
+
+
+def _desk_outer(x, y, groups, can_close, splits) -> tuple[np.ndarray, np.ndarray, list[dict]]:
+    pred = np.empty(len(y), dtype=object)
+    proba = np.zeros((len(y), 3))
+    chosen = []
+    for train, valid in splits:
+        params = _desk_tune(x[train], y[train], groups[train], can_close[train])
+        proba[valid] = TwoStage(params).fit(x[train], y[train]).predict_proba(x[valid])
+        pred[valid] = _decide(proba[valid], can_close[valid])
+        chosen.append(params)
+    return pred, proba, chosen
+
+
 def main() -> int:
     rows = _rows()
     train_idx, test_idx = _holdout(rows)
@@ -819,13 +1071,36 @@ def main() -> int:
     firms = np.array([row["institution"] for row in train_rows])
     loio = {}
     logo = LeaveOneGroupOut()
-    for tr, te in logo.split(ablated_x, y, firms):
+    firm_splits = list(logo.split(ablated_x, y, firms))
+    loio_pred = np.empty(len(y), dtype=object)
+    for tr, te in firm_splits:
         firm = firms[te][0]
         model = _fit_lgbm(ablated_x[tr], y[tr], search["chosen"])
-        loio[str(firm)] = _pack(y[te], model.predict(ablated_x[te]))
+        loio_pred[te] = model.predict(ablated_x[te])
+        loio[str(firm)] = _pack(y[te], loio_pred[te])
+
+    # The desk model: facts that do not depend on a firm's size, two stages, and the
+    # scoring matrix in the decision. Tuned inside every outer fold.
+    desk_names, desk_all, can_all = _desk_xy(rows)
+    desk_x, desk_can = desk_all[train_idx], can_all[train_idx]
+    outer = list(StratifiedGroupKFold(n_splits=5, shuffle=True, random_state=SEED).split(desk_x, y, groups))
+    desk_pred, desk_proba, desk_params = _desk_outer(desk_x, y, groups, desk_can, outer)
+    desk_firm_pred, _, desk_firm_params = _desk_outer(desk_x, y, groups, desk_can, firm_splits)
+    desk_loio = {str(firms[te][0]): _pack(y[te], desk_firm_pred[te]) for _, te in firm_splits}
+    desk_stats = _fold_stats(y, desk_pred, groups)
+    old_unseen = _pack(y, loio_pred)
+    desk_unseen = _pack(y, desk_firm_pred)
+    # The desk model replaces the smaller model when it holds up better on an unseen firm
+    # and is no worse inside the spread of the folds on known firms.
+    use_desk = (
+        desk_unseen["expected_cost"] < old_unseen["expected_cost"]
+        and desk_stats["cost_mean"] <= ablated_stats["cost_mean"] + ablated_stats["cost_std"]
+    )
 
     # The smaller model is the one the desk shows, unless the stack is clearly better.
     chosen_name = "stack" if stack_better else ("lightgbm_ablated" if prefer_ablated else "lightgbm_full")
+    if use_desk:
+        chosen_name = "two_stage"
     score_x = ablated_all if chosen_name != "lightgbm_full" else x_all
     score_train = score_x[train_idx]
     final = _fit_lgbm(score_train, y_all[train_idx], search["chosen"])
@@ -844,6 +1119,20 @@ def main() -> int:
     else:
         score_proba[train_idx] = full_proba
     score_proba[test_idx] = _align(final.predict_proba(score_x[test_idx]), getattr(final, "classes_", LABELS))
+    desk_final_params = _desk_tune(desk_x, y, groups, desk_can)
+    desk_final = TwoStage(desk_final_params).fit(desk_x, y)
+    desk_test_proba = desk_final.predict_proba(desk_all[test_idx])
+    desk_test = _pack(
+        y_all[test_idx],
+        _decide(desk_test_proba, can_all[test_idx]),
+        y,
+        _decide(desk_final.predict_proba(desk_x), desk_can),
+    )
+    if use_desk:
+        score_proba[train_idx] = desk_proba
+        score_proba[test_idx] = desk_test_proba
+        test_pack = desk_test
+        agreement = float(np.mean(y_all[test_idx] == _decide(desk_test_proba, can_all[test_idx])))
     inner_winner = chosen_name
 
     report = {
@@ -862,6 +1151,23 @@ def main() -> int:
         "comparison_on_train_oof": comparison,
         "inner_winner": inner_winner,
         "leave_one_institution_out": loio,
+        "desk_model": {
+            "used": use_desk,
+            "features": len(desk_names),
+            "left_out": sorted(SCALE_FEATURES | {m for g in DROPPED_GROUPS for m in GROUPS[g]}),
+            "decision": "Lowest expected cost under the scoring matrix. No close without a supporting document on file.",
+            "policy_closes_without_document": int(np.sum((y_all == "CLOSE") & ~can_all)),
+            "cases_it_cannot_close": int(np.sum(~can_all)),
+            "grid": list(DESK_GRID),
+            "params_by_fold": desk_params,
+            "params_by_firm": desk_firm_params,
+            "final_params": desk_final_params,
+            "out_of_fold": {**_pack(y, desk_pred), **desk_stats},
+            "leave_one_institution_out": desk_loio,
+            "unseen_firm_all": desk_unseen,
+            "unseen_firm_all_previous": old_unseen,
+            "test_once": desk_test,
+        },
         "group_ablation": ablation,
         "learning_curve": curve,
         "calibration": {
@@ -875,12 +1181,13 @@ def main() -> int:
         },
         "review": {
             "raw_features": 48,
-            "model_features": 42 if chosen_name != "lightgbm_full" else 48,
+            "model_features": len(desk_names) if use_desk else (42 if chosen_name != "lightgbm_full" else 48),
             "dropped_groups": list(DROPPED_GROUPS),
             "folds": "5-fold StratifiedGroupKFold by customer, with a 20% grouped hold-out not used for tuning.",
             "models": {
                 "lightgbm": full_stats,
                 "lightgbm_ablated": ablated_stats,
+                "two_stage": desk_stats,
                 "xgboost": xgb_stats,
                 "extra_trees": tree_stats,
                 "stack": {**stack_stats, "better_than_best_single": stack_better},
@@ -892,7 +1199,9 @@ def main() -> int:
                 "agreement": round(agreement, 4),
                 "wrongful_closes": test_pack["wrongful_closes"],
             },
-            "leave_one_institution_out": {firm: block["expected_cost"] for firm, block in loio.items()},
+            "leave_one_institution_out": {
+                firm: block["expected_cost"] for firm, block in (desk_loio if use_desk else loio).items()
+            },
             "reason_code": reason_stats,
             "label_noise": {"flip_5": noise_5, "flip_10": noise_10},
         },
