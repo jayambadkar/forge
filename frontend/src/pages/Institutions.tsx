@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { fetchInstitutions } from "../api";
+import { reasonLabel } from "../format";
 import type { Institution } from "../types";
 
 export function Institutions() {
@@ -53,7 +54,7 @@ export function Institutions() {
               <ul className="reason-counts">
                 {row.reasons.slice(0, 5).map((reason) => (
                   <li key={reason.code}>
-                    <span className="code-tag">{reason.code}</span>
+                    <span title={reason.code}>{reasonLabel(reason.code)}</span>
                     <span className="nums">{reason.count.toLocaleString("en-GB")}</span>
                   </li>
                 ))}

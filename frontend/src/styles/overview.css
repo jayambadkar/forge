@@ -446,3 +446,14 @@
 .overview .data-table tr.in-use td {
   background: var(--green-tint);
 }
+
+.reason-counts li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+.reason-counts li span:first-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
