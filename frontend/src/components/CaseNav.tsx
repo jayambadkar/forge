@@ -66,9 +66,12 @@ export function CaseNav({ institution, caseId }: Ref) {
       ) : (
         <span className="button-link disabled">← Previous</span>
       )}
-      <span className="case-pos">
+      <span
+        className="case-pos hint"
+        title="Keyboard: press k for the previous case, j for the next"
+      >
         Case {(index + 1).toLocaleString("en-GB")} of {list.length.toLocaleString("en-GB")} ·{" "}
-        {scope} · <kbd>k</kbd> / <kbd>j</kbd>
+        {scope}
       </span>
       {next ? (
         <Link to={`/cases/${next.institution}/${next.caseId}`} className="button-link">
