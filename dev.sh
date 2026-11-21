@@ -10,4 +10,5 @@ cd "$ROOT"
 dotnet run --project backend/Forge.Api.csproj --urls http://0.0.0.0:43124 &
 API_PID=$!
 trap 'kill $API_PID 2>/dev/null || true' EXIT
+[ -d frontend/node_modules ] || npm --prefix frontend ci
 npm --prefix frontend run dev
