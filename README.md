@@ -6,7 +6,7 @@ Transaction-monitoring triage for four UK firms. One recommendation per case: cl
 
 ## Quick start
 
-You need Python 3.12, Node 22, and the .NET 8 SDK.
+You need Python 3.12, Node 22, and the .NET 10 SDK.
 
 ```bash
 bash scripts/fetch_hackathon_data.sh

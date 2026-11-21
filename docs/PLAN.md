@@ -56,7 +56,7 @@ system/run  (Python 3, cwd-independent)
         └─ output jsonl  {case_id, alert_ids, verdict, reason_code, reason, evidence}
                 │
                 ▼
-backend  ASP.NET Core 8 minimal API
+backend  ASP.NET Core 10 minimal API
         reads output, case files, and the CV report
         starts system/run and streams stderr + result lines
                 │
