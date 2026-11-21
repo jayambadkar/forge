@@ -1,0 +1,7 @@
+{"customer_id": "cus-north", "name": "Northwind Ltd", "dob": "1980-01-01", "country": "GB", "expected_monthly_amount": 2000, "accounts": ["200100"]}
+{"customer_id": "cus-harbour", "name": "Harbour Goods Ltd", "dob": "1982-02-02", "country": "GB", "expected_monthly_amount": 2000, "accounts": ["200200"]}
+{"customer_id": "cus-lumen", "name": "Lumen Freight Ltd", "dob": "1977-03-03", "country": "GB", "expected_monthly_amount": 2000, "accounts": ["200300"]}
+{"customer_id": "cus-piper", "name": "Piper Studio", "dob": "1993-06-06", "country": "GB", "expected_monthly_amount": 500, "accounts": ["200400"]}
+{"customer_id": "cus-idris", "name": "Idris Cole", "dob": "1979-04-04", "country": "GB", "expected_monthly_amount": 4000, "accounts": ["200500"]}
+{"customer_id": "cus-willa", "name": "Willa Grant", "dob": "1990-10-10", "country": "GB", "expected_monthly_amount": 2000, "accounts": ["200600", "200601"]}
+{"customer_id": "cus-soren", "name": "Soren Blake", "dob": "1987-11-11", "country": "GB", "expected_monthly_amount": 2000, "accounts": ["200700"]}

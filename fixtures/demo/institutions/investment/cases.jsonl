@@ -1,0 +1,6 @@
+{"case_id": "i-sub-miss", "customer_id": "cus-bram", "alert_ids": ["al-bram"]}
+{"case_id": "i-sub-ok", "customer_id": "cus-cleo", "alert_ids": ["al-cleo"]}
+{"case_id": "i-list", "customer_id": "cus-yusuf", "alert_ids": ["al-yusuf"]}
+{"case_id": "i-context", "customer_id": "cus-pia", "alert_ids": ["al-pia"]}
+{"case_id": "i-expected", "customer_id": "cus-glen", "alert_ids": ["al-glen"]}
+{"case_id": "i-review-ok", "customer_id": "cus-noor", "alert_ids": ["al-noor"]}

@@ -1,0 +1,130 @@
+{
+  "bank": {
+    "b-own-ok": {
+      "verdict": "CLOSE",
+      "reason_code": "OWN_ACCOUNT_WITHIN_LIMIT"
+    },
+    "b-own-over": {
+      "verdict": "ESCALATE",
+      "reason_code": "OWN_ACCOUNT_EXCEEDS_MULTIPLE"
+    },
+    "b-list-hit": {
+      "verdict": "ESCALATE",
+      "reason_code": "INTERNAL_LIST_MATCH"
+    },
+    "b-list-refute": {
+      "verdict": "CLOSE",
+      "reason_code": "LIST_MATCH_REFUTED"
+    },
+    "b-list-weak": {
+      "verdict": "RFI",
+      "reason_code": "IDENTITY_CONFIRMATION"
+    },
+    "b-review-ok": {
+      "verdict": "CLOSE",
+      "reason_code": "COVERED_BY_PRIOR_REVIEW"
+    },
+    "b-review-miss": {
+      "verdict": "ESCALATE",
+      "reason_code": "ACTIVITY_UNEXPLAINED"
+    },
+    "b-expected": {
+      "verdict": "CLOSE",
+      "reason_code": "EXPECTED_ACTIVITY"
+    },
+    "b-context": {
+      "verdict": "ESCALATE",
+      "reason_code": "ACTIVITY_UNEXPLAINED"
+    },
+    "b-cash": {
+      "verdict": "ESCALATE",
+      "reason_code": "CASH_ABOVE_THRESHOLD"
+    },
+    "b-mixed": {
+      "verdict": "ESCALATE",
+      "reason_code": "ACTIVITY_UNEXPLAINED"
+    }
+  },
+  "payments_fx": {
+    "p-inv-miss": {
+      "verdict": "RFI",
+      "reason_code": "INVOICE_REQUIRED"
+    },
+    "p-inv-ok": {
+      "verdict": "CLOSE",
+      "reason_code": "INVOICE_SUPPORTS_PAYMENT"
+    },
+    "p-inv-bad": {
+      "verdict": "ESCALATE",
+      "reason_code": "INVOICE_MISMATCH"
+    },
+    "p-small": {
+      "verdict": "ESCALATE",
+      "reason_code": "ACTIVITY_UNEXPLAINED"
+    },
+    "p-list-inv": {
+      "verdict": "ESCALATE",
+      "reason_code": "INTERNAL_LIST_MATCH"
+    },
+    "p-own-ok": {
+      "verdict": "CLOSE",
+      "reason_code": "OWN_ACCOUNT_WITHIN_LIMIT"
+    },
+    "p-under-expected": {
+      "verdict": "CLOSE",
+      "reason_code": "EXPECTED_ACTIVITY"
+    }
+  },
+  "emoney": {
+    "e-sof-miss": {
+      "verdict": "RFI",
+      "reason_code": "SOURCE_OF_FUNDS_REQUIRED"
+    },
+    "e-sof-ok": {
+      "verdict": "CLOSE",
+      "reason_code": "SOURCE_OF_FUNDS_ON_FILE"
+    },
+    "e-expected": {
+      "verdict": "CLOSE",
+      "reason_code": "EXPECTED_ACTIVITY"
+    },
+    "e-list": {
+      "verdict": "ESCALATE",
+      "reason_code": "INTERNAL_LIST_MATCH"
+    },
+    "e-own-over": {
+      "verdict": "ESCALATE",
+      "reason_code": "OWN_ACCOUNT_EXCEEDS_MULTIPLE"
+    },
+    "e-review-ok": {
+      "verdict": "CLOSE",
+      "reason_code": "COVERED_BY_PRIOR_REVIEW"
+    }
+  },
+  "investment": {
+    "i-sub-miss": {
+      "verdict": "RFI",
+      "reason_code": "SUBSCRIPTION_AGREEMENT_REQUIRED"
+    },
+    "i-sub-ok": {
+      "verdict": "CLOSE",
+      "reason_code": "SUBSCRIPTION_AGREEMENT_ON_FILE"
+    },
+    "i-list": {
+      "verdict": "ESCALATE",
+      "reason_code": "INTERNAL_LIST_MATCH"
+    },
+    "i-context": {
+      "verdict": "ESCALATE",
+      "reason_code": "ACTIVITY_UNEXPLAINED"
+    },
+    "i-expected": {
+      "verdict": "CLOSE",
+      "reason_code": "EXPECTED_ACTIVITY"
+    },
+    "i-review-ok": {
+      "verdict": "CLOSE",
+      "reason_code": "COVERED_BY_PRIOR_REVIEW"
+    }
+  }
+}

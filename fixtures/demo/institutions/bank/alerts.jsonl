@@ -1,0 +1,12 @@
+{"alert_id": "al-helen", "case_id": "b-own-ok", "customer_id": "cus-helen", "typology": "own account transfer", "narrative": "", "transaction_ids": ["txn-helen"]}
+{"alert_id": "al-marcus", "case_id": "b-own-over", "customer_id": "cus-marcus", "typology": "own account transfer", "narrative": "", "transaction_ids": ["txn-marcus"]}
+{"alert_id": "al-priya", "case_id": "b-list-hit", "customer_id": "cus-priya", "typology": "sanctions screening", "narrative": "Potential internal list match", "transaction_ids": ["txn-priya"]}
+{"alert_id": "al-owen", "case_id": "b-list-refute", "customer_id": "cus-owen", "typology": "sanctions screening", "narrative": "", "transaction_ids": ["txn-owen"]}
+{"alert_id": "al-nora", "case_id": "b-list-weak", "customer_id": "cus-nora", "typology": "sanctions screening", "narrative": "", "transaction_ids": ["txn-nora"]}
+{"alert_id": "al-leah", "case_id": "b-review-ok", "customer_id": "cus-leah", "typology": "salary", "narrative": "", "transaction_ids": ["txn-leah"]}
+{"alert_id": "al-tom", "case_id": "b-review-miss", "customer_id": "cus-tom", "typology": "crypto transfer", "narrative": "", "transaction_ids": ["txn-tom"]}
+{"alert_id": "al-ruth", "case_id": "b-expected", "customer_id": "cus-ruth", "typology": "salary", "narrative": "", "transaction_ids": ["txn-ruth"]}
+{"alert_id": "al-ivan", "case_id": "b-context", "customer_id": "cus-ivan", "typology": "unusual amount", "narrative": "", "transaction_ids": ["txn-ivan"]}
+{"alert_id": "al-ada", "case_id": "b-cash", "customer_id": "cus-ada", "typology": "cash deposit", "narrative": "", "transaction_ids": ["txn-ada"]}
+{"alert_id": "al-ned-own", "case_id": "b-mixed", "customer_id": "cus-ned", "typology": "own account transfer", "narrative": "", "transaction_ids": ["txn-ned-own"]}
+{"alert_id": "al-ned-out", "case_id": "b-mixed", "customer_id": "cus-ned", "typology": "third party payment", "narrative": "", "transaction_ids": ["txn-ned-out"]}

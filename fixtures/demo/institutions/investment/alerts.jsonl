@@ -1,0 +1,6 @@
+{"alert_id": "al-bram", "case_id": "i-sub-miss", "customer_id": "cus-bram", "typology": "subscription", "narrative": "", "transaction_ids": ["txn-bram"]}
+{"alert_id": "al-cleo", "case_id": "i-sub-ok", "customer_id": "cus-cleo", "typology": "subscription", "narrative": "", "transaction_ids": ["txn-cleo"]}
+{"alert_id": "al-yusuf", "case_id": "i-list", "customer_id": "cus-yusuf", "typology": "sanctions screening", "narrative": "", "transaction_ids": ["txn-yusuf"]}
+{"alert_id": "al-pia", "case_id": "i-context", "customer_id": "cus-pia", "typology": "crypto transfer", "narrative": "", "transaction_ids": ["txn-pia"]}
+{"alert_id": "al-glen", "case_id": "i-expected", "customer_id": "cus-glen", "typology": "distribution", "narrative": "", "transaction_ids": ["txn-glen"]}
+{"alert_id": "al-noor", "case_id": "i-review-ok", "customer_id": "cus-noor", "typology": "custody fee", "narrative": "", "transaction_ids": ["txn-noor"]}

@@ -1,0 +1,7 @@
+{"case_id": "p-inv-miss", "customer_id": "cus-north", "alert_ids": ["al-north"]}
+{"case_id": "p-inv-ok", "customer_id": "cus-harbour", "alert_ids": ["al-harbour"]}
+{"case_id": "p-inv-bad", "customer_id": "cus-lumen", "alert_ids": ["al-lumen"]}
+{"case_id": "p-small", "customer_id": "cus-piper", "alert_ids": ["al-piper"]}
+{"case_id": "p-list-inv", "customer_id": "cus-idris", "alert_ids": ["al-idris"]}
+{"case_id": "p-own-ok", "customer_id": "cus-willa", "alert_ids": ["al-willa"]}
+{"case_id": "p-under-expected", "customer_id": "cus-soren", "alert_ids": ["al-soren"]}

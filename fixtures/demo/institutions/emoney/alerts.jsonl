@@ -1,0 +1,6 @@
+{"alert_id": "al-kira", "case_id": "e-sof-miss", "customer_id": "cus-kira", "typology": "large load", "narrative": "", "transaction_ids": ["txn-kira"]}
+{"alert_id": "al-joel", "case_id": "e-sof-ok", "customer_id": "cus-joel", "typology": "large load", "narrative": "", "transaction_ids": ["txn-joel"]}
+{"alert_id": "al-mina", "case_id": "e-expected", "customer_id": "cus-mina", "typology": "wallet top up", "narrative": "", "transaction_ids": ["txn-mina"]}
+{"alert_id": "al-farid", "case_id": "e-list", "customer_id": "cus-farid", "typology": "sanctions screening", "narrative": "", "transaction_ids": ["txn-farid"]}
+{"alert_id": "al-elena", "case_id": "e-own-over", "customer_id": "cus-elena", "typology": "own account transfer", "narrative": "", "transaction_ids": ["txn-elena"]}
+{"alert_id": "al-hassan", "case_id": "e-review-ok", "customer_id": "cus-hassan", "typology": "merchant refund", "narrative": "", "transaction_ids": ["txn-hassan"]}

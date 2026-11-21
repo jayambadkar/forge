@@ -1,0 +1,6 @@
+{"customer_id": "cus-kira", "name": "Kira Novak", "dob": "1994-04-18", "country": "GB", "expected_monthly_amount": 1000, "accounts": ["300100"]}
+{"customer_id": "cus-joel", "name": "Joel Mensah", "dob": "1989-09-01", "country": "GB", "expected_monthly_amount": 1000, "accounts": ["300200"]}
+{"customer_id": "cus-mina", "name": "Mina Shah", "dob": "1998-08-08", "country": "GB", "expected_monthly_amount": 1500, "accounts": ["300300"]}
+{"customer_id": "cus-farid", "name": "Farid Osman", "dob": "1976-06-16", "country": "GB", "expected_monthly_amount": 2000, "accounts": ["300400"]}
+{"customer_id": "cus-elena", "name": "Elena Voss", "dob": "1991-01-30", "country": "GB", "expected_monthly_amount": 1000, "accounts": ["300500", "300501"]}
+{"customer_id": "cus-hassan", "name": "Hassan Iqbal", "dob": "1985-05-15", "country": "GB", "expected_monthly_amount": 800, "accounts": ["300600"]}

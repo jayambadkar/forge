@@ -1,0 +1,7 @@
+{"alert_id": "al-north", "case_id": "p-inv-miss", "customer_id": "cus-north", "typology": "high value payment", "narrative": "", "transaction_ids": ["txn-north"]}
+{"alert_id": "al-harbour", "case_id": "p-inv-ok", "customer_id": "cus-harbour", "typology": "high value payment", "narrative": "", "transaction_ids": ["txn-harbour"]}
+{"alert_id": "al-lumen", "case_id": "p-inv-bad", "customer_id": "cus-lumen", "typology": "high value payment", "narrative": "", "transaction_ids": ["txn-lumen"]}
+{"alert_id": "al-piper", "case_id": "p-small", "customer_id": "cus-piper", "typology": "round amount", "narrative": "", "transaction_ids": ["txn-piper"]}
+{"alert_id": "al-idris", "case_id": "p-list-inv", "customer_id": "cus-idris", "typology": "high value payment", "narrative": "", "transaction_ids": ["txn-idris"]}
+{"alert_id": "al-willa", "case_id": "p-own-ok", "customer_id": "cus-willa", "typology": "own account transfer", "narrative": "", "transaction_ids": ["txn-willa"]}
+{"alert_id": "al-soren", "case_id": "p-under-expected", "customer_id": "cus-soren", "typology": "low value payment", "narrative": "", "transaction_ids": ["txn-soren"]}

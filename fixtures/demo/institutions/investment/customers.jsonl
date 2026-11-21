@@ -1,0 +1,6 @@
+{"customer_id": "cus-bram", "name": "Bram Holdings", "dob": "1970-01-01", "country": "GB", "expected_monthly_amount": 4000, "accounts": ["400100"]}
+{"customer_id": "cus-cleo", "name": "Cleo Ward", "dob": "1983-03-03", "country": "GB", "expected_monthly_amount": 4000, "accounts": ["400200"]}
+{"customer_id": "cus-yusuf", "name": "Yusuf Rahman", "dob": "1972-12-01", "country": "GB", "expected_monthly_amount": 6000, "accounts": ["400300"]}
+{"customer_id": "cus-pia", "name": "Pia Lorenz", "dob": "1996-06-21", "country": "GB", "expected_monthly_amount": 2000, "accounts": ["400400"]}
+{"customer_id": "cus-glen", "name": "Glen Porter", "dob": "1980-08-30", "country": "GB", "expected_monthly_amount": 10000, "accounts": ["400500"]}
+{"customer_id": "cus-noor", "name": "Noor Aziz", "dob": "1988-02-28", "country": "GB", "expected_monthly_amount": 2000, "accounts": ["400600"]}

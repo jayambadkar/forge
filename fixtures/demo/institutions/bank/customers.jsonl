@@ -1,0 +1,11 @@
+{"customer_id": "cus-helen", "name": "Helen Ward", "dob": "1988-02-02", "country": "GB", "expected_monthly_amount": 2000, "accounts": ["102938", "102939"]}
+{"customer_id": "cus-marcus", "name": "Marcus Hale", "dob": "1979-07-19", "country": "GB", "expected_monthly_amount": 2000, "accounts": ["440011", "440012"]}
+{"customer_id": "cus-priya", "name": "Priya Shah", "dob": "1984-03-12", "country": "GB", "expected_monthly_amount": 3000, "accounts": ["551100"]}
+{"customer_id": "cus-owen", "name": "Owen Blake", "dob": "1990-01-01", "country": "GB", "expected_monthly_amount": 2500, "accounts": ["661200"]}
+{"customer_id": "cus-nora", "name": "Nora Ellis", "dob": "", "country": "", "expected_monthly_amount": 2200, "accounts": ["771300"]}
+{"customer_id": "cus-leah", "name": "Leah Okonkwo", "dob": "1992-09-09", "country": "GB", "expected_monthly_amount": 1000, "accounts": ["881400"]}
+{"customer_id": "cus-tom", "name": "Tom Adler", "dob": "1986-12-12", "country": "GB", "expected_monthly_amount": 5000, "accounts": ["991500"]}
+{"customer_id": "cus-ruth", "name": "Ruth Begum", "dob": "1995-05-05", "country": "GB", "expected_monthly_amount": 3000, "accounts": ["101600"]}
+{"customer_id": "cus-ivan", "name": "Ivan Petrov", "dob": "1981-01-21", "country": "GB", "expected_monthly_amount": 1000, "accounts": ["111700"]}
+{"customer_id": "cus-ada", "name": "Ada Brennan", "dob": "1974-04-14", "country": "GB", "expected_monthly_amount": 20000, "accounts": ["121800"]}
+{"customer_id": "cus-ned", "name": "Ned Cartwright", "dob": "1991-08-08", "country": "GB", "expected_monthly_amount": 4000, "accounts": ["131900", "131901"]}

@@ -1,0 +1,2 @@
+{"evidence_id": "ev-harbour", "customer_id": "cus-harbour", "case_id": "", "kind": "invoice", "title": "Invoice KC-19", "text": "Invoice KC-19\nSupplier: Kelp and Co\nCustomer: Harbour Goods Ltd\nAmount: £15,000.00\nGoods: kiln-dried oak.", "amount": 15000, "path": "evidence/ev-harbour.md"}
+{"evidence_id": "ev-lumen", "customer_id": "cus-lumen", "case_id": "", "kind": "invoice", "title": "Invoice QM-4", "text": "Invoice QM-4\nSupplier: Quay Motors\nAmount: £4,000.00\nGoods: spare parts.", "amount": 4000, "path": "evidence/ev-lumen.md"}

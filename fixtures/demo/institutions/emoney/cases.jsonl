@@ -1,0 +1,6 @@
+{"case_id": "e-sof-miss", "customer_id": "cus-kira", "alert_ids": ["al-kira"]}
+{"case_id": "e-sof-ok", "customer_id": "cus-joel", "alert_ids": ["al-joel"]}
+{"case_id": "e-expected", "customer_id": "cus-mina", "alert_ids": ["al-mina"]}
+{"case_id": "e-list", "customer_id": "cus-farid", "alert_ids": ["al-farid"]}
+{"case_id": "e-own-over", "customer_id": "cus-elena", "alert_ids": ["al-elena"]}
+{"case_id": "e-review-ok", "customer_id": "cus-hassan", "alert_ids": ["al-hassan"]}

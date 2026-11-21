@@ -1,0 +1,11 @@
+{"case_id": "b-own-ok", "customer_id": "cus-helen", "alert_ids": ["al-helen"]}
+{"case_id": "b-own-over", "customer_id": "cus-marcus", "alert_ids": ["al-marcus"]}
+{"case_id": "b-list-hit", "customer_id": "cus-priya", "alert_ids": ["al-priya"]}
+{"case_id": "b-list-refute", "customer_id": "cus-owen", "alert_ids": ["al-owen"]}
+{"case_id": "b-list-weak", "customer_id": "cus-nora", "alert_ids": ["al-nora"]}
+{"case_id": "b-review-ok", "customer_id": "cus-leah", "alert_ids": ["al-leah"]}
+{"case_id": "b-review-miss", "customer_id": "cus-tom", "alert_ids": ["al-tom"]}
+{"case_id": "b-expected", "customer_id": "cus-ruth", "alert_ids": ["al-ruth"]}
+{"case_id": "b-context", "customer_id": "cus-ivan", "alert_ids": ["al-ivan"]}
+{"case_id": "b-cash", "customer_id": "cus-ada", "alert_ids": ["al-ada"]}
+{"case_id": "b-mixed", "customer_id": "cus-ned", "alert_ids": ["al-ned-own", "al-ned-out"]}
