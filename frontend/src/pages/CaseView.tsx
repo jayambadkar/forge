@@ -243,11 +243,6 @@ export function CaseView() {
         </details>
         <EmailDraft {...email} />
       </div>
-      <p className="action-help">
-        Accept records that you agree with Forge's recommendation. Override changes the verdict and
-        needs a note. Both are written to the audit trail. The email button shows a draft you can
-        copy; it does not send anything.
-      </p>
       <AnalystDecision data={data} done={done} />
 
       <details className="fold" {...fold("case")}>
@@ -456,7 +451,12 @@ export function CaseView() {
 
       <details className="fold" {...fold("crosscheck")}>
         <summary>
-          <span className="fold-title">Model cross-check</span>
+          <span
+            className="fold-title hint"
+            title="A separate model estimates each outcome from the case facts. It flags cases worth a second look and never changes the recommendation."
+          >
+            Model cross-check
+          </span>
           <span className="fold-meta">{crossCheckSummary(data)}</span>
         </summary>
         <div className="fold-body">
@@ -626,23 +626,13 @@ function AnalystDecision({ data, done }: { data: CaseDetail; done: string }) {
         </dd>
         <dt>Status</dt>
         <dd>
-          {status}
+          <span className="hint" title={STATUS_HELP[status]}>
+            {status}
+          </span>
           {data.work.assignee ? ` · owner ${data.work.assignee}` : " · no owner"}
           {data.work.rfiSent ? " · request sent" : ""}
-          {STATUS_HELP[status] ? <span className="status-help">{STATUS_HELP[status]}</span> : null}
         </dd>
       </dl>
-      <details className="why status-key">
-        <summary>What the statuses mean</summary>
-        <dl className="facts">
-          {Object.entries(STATUS_HELP).map(([name, help]) => (
-            <div key={name} className="fact-pair">
-              <dt>{name}</dt>
-              <dd>{help}</dd>
-            </div>
-          ))}
-        </dl>
-      </details>
     </div>
   );
 }

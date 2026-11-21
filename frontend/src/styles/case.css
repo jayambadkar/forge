@@ -133,12 +133,6 @@ h2.decision-sub {
   gap: var(--space-3);
   margin: 0 0 var(--space-2);
 }
-.action-help {
-  max-width: 44em;
-  margin: 0 0 var(--space-5);
-  color: var(--secondary);
-  font-size: 16px;
-}
 .toolbar button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
@@ -202,14 +196,6 @@ details.menu form.menu-form {
   padding: var(--space-5);
   margin: 0 0 var(--space-6);
   font-size: 16px;
-}
-.status-help {
-  display: block;
-  margin-top: var(--space-1);
-  color: var(--secondary);
-}
-.analyst-block .status-key {
-  margin-top: var(--space-4);
 }
 .analyst-block .done {
   margin: 0 0 var(--space-3);
@@ -624,4 +610,10 @@ code.chip {
   height: 1px;
   overflow: hidden;
   clip-path: inset(50%);
+}
+
+.hint {
+  cursor: help;
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
 }

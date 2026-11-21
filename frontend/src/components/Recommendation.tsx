@@ -145,12 +145,11 @@ export function CrossCheck({ data }: { data: CaseDetail }) {
   const agrees = top.verdict === decision.verdict;
   return (
     <>
-      <p className="lead-in">
-        A separate machine-learning model reads the same case facts and estimates how likely each
-        outcome is. It was trained on Forge's past decisions across all four firms. It never changes
-        the recommendation; it flags cases worth a second look.
-      </p>
-      <div className={agrees ? "callout agree" : "callout differ"} role="status">
+      <div
+        className={agrees ? "callout agree" : "callout differ"}
+        role="status"
+        title="A separate model trained on Forge's past decisions estimates each outcome from the case facts. It never changes the recommendation."
+      >
         {agrees ? (
           <>
             <strong>Model agrees.</strong> It also points to{" "}
