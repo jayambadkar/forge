@@ -480,6 +480,36 @@ def _dissolved_funder(book: Book, customer: dict, txs: list[dict]) -> tuple[dict
     return None
 
 
+def _staged_payments(book: Book, customer: dict, txs: list[dict]) -> dict | None:
+    """An invoice or contract that names the payee and lists every payment as its own line.
+
+    A total that the payments add up to is not enough. Instalments just under a
+    threshold against one total is the pattern the rule looks for.
+    """
+    outbound = [tx for tx in txs if tx.get("direction") == "out"]
+    if not outbound or len(outbound) != len(txs):
+        return None
+    payees = {norm(tx.get("counterparty_name")) for tx in outbound}
+    if len(payees) != 1:
+        return None
+    payee = payees.pop()
+    if len(payee) < 4:
+        return None
+    for doc in _docs_of(book, customer["customer_id"], _INVOICE_TYPES):
+        if payee not in doc["norm"]:
+            continue
+        pool = list(doc["amounts"])
+        for tx in outbound:
+            amount = float(tx.get("amount_gbp") or 0)
+            index = next((i for i, value in enumerate(pool) if _near(amount, value, 0.01)), None)
+            if index is None:
+                break
+            pool.pop(index)
+        else:
+            return doc
+    return None
+
+
 def _list_decision(book: Book, alert: dict, customer: dict, docs: list[dict], txs: list[dict]) -> Finding:
     measured = alert.get("measured") or {}
     entry = book.listed.get(measured.get("list_entry") or "")
@@ -733,6 +763,20 @@ def _explain(book: Book, alert: dict, customer: dict) -> Finding:
         )
 
     if rule == "TM03":
+        staged = _staged_payments(book, customer, txs)
+        if staged is not None:
+            return _finding(
+                "CLOSE",
+                "INVOICE_MATCHES",
+                alert["alert_id"],
+                [alert["alert_id"], staged["doc_id"], *[tx["transaction_id"] for tx in txs]],
+                (
+                    f"Alert {alert['alert_id']} counted {len(txs)} payments to {txs[0].get('counterparty_name')}"
+                    f" totalling {money(sum(float(tx.get('amount_gbp') or 0) for tx in txs))}.",
+                    f"Document {staged['doc_id']} ({staged['title']}) names that payee and lists each of those amounts"
+                    " as a separate stage, so the payments follow the contract rather than a split.",
+                ),
+            )
         books = _docs_of(book, customer["customer_id"], _BOOK_TYPES | {"ticket_report"})
         deposits = [tx.get("amount_gbp") or 0 for tx in txs]
         matched_docs = []

@@ -587,3 +587,42 @@ def test_invoice_mismatch_needs_the_payments_firm(tmp_path: Path):
     decided = _score(folder)["CASE-MIS"]
     assert decided.verdict == "ESCALATE"
     assert decided.reason_code == "ESC_INVOICE_MISMATCH"
+
+
+def _split_payments(folder: Path, body: str, kind: str) -> object:
+    customer = _customer("C-STG", "Brindle Interiors Ltd", kind="business", income=60000)
+    amounts = [9310.40, 9122.75, 9488.10]
+    tids = [f"T-STG-{index}" for index in range(len(amounts))]
+    transactions = [
+        _tx(tid, "C-STG", amount, "Varo Mobili Srl", direction="out", country="Italy")
+        for tid, amount in zip(tids, amounts, strict=True)
+    ]
+    alert = _alert("A-STG", "TM03", tids, {"count": 3, "total_gbp": sum(amounts)})
+    doc = _doc(folder, "DOC-STG", "C-STG", kind, "Varo Mobili Srl", body)
+    _write(folder, "customers.jsonl", [customer])
+    _write(folder, "alerts.jsonl", [alert])
+    _write(folder, "transactions.jsonl", transactions)
+    _write(folder, "cases.jsonl", [_case("CASE-STG", "C-STG", ["A-STG"])])
+    _write(folder, "evidence.jsonl", [doc])
+    _write(folder, "previous_reviews.jsonl", [])
+    _write(folder, "internal_list.jsonl", [])
+    return _score(folder)["CASE-STG"]
+
+
+def test_split_payments_close_only_on_a_stage_for_each(tmp_path: Path):
+    staged = _split_payments(
+        tmp_path / "staged",
+        "Supplier: Varo Mobili Srl.\n\n| Stage | Amount |\n|---|---|\n| 1 | £9,310.40 |\n| 2 | £9,122.75 |\n| 3 | £9,488.10 |",
+        "contract_schedule",
+    )
+    assert staged.verdict == "CLOSE", staged.reason
+    assert staged.reason_code == "INVOICE_MATCHES"
+    assert "DOC-STG" in staged.evidence
+
+    instalments = _split_payments(
+        tmp_path / "instalments",
+        "Invoice from Varo Mobili Srl. Total: £27,921.25. Payable in three instalments.",
+        "invoice",
+    )
+    assert instalments.verdict == "ESCALATE", instalments.reason
+    assert instalments.reason_code == "ESC_STRUCTURING"
