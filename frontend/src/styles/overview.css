@@ -297,10 +297,6 @@
 .overview.how > p {
   max-width: 44em;
 }
-.overview.how > p.meta {
-  margin-top: 0;
-  font-size: 14px;
-}
 
 @media (min-width: 960px) {
   .overview .dash-grid {
@@ -392,17 +388,46 @@
   font-size: 15px;
   fill: var(--text);
 }
-.overview .model-diagram .md-band {
-  font-size: 15px;
-  font-weight: 700;
-  fill: var(--green);
-}
-.overview .model-diagram .md-note {
-  font-size: 15px;
+.overview .model-diagram .md-note,
+.overview .model-diagram .md-tag {
+  font-size: 14px;
   fill: var(--secondary);
 }
+.overview .model-diagram .md-branch {
+  font-size: 15px;
+  font-weight: 700;
+  fill: var(--text);
+}
 .overview.how .kpis {
-  margin-bottom: var(--space-5);
+  margin-bottom: var(--space-3);
+}
+.overview.how .caption {
+  margin: 0 0 var(--space-5);
+  font-size: 16px;
+  color: var(--secondary);
+}
+.overview .validation {
+  margin: 0 0 var(--space-5);
+  border-top: 1px solid var(--border);
+  padding-top: var(--space-3);
+}
+.overview .validation summary {
+  color: var(--link);
+  font-size: 19px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.overview .validation summary:hover {
+  color: var(--link-hover);
+}
+.overview .validation summary:focus-visible {
+  outline: 3px solid var(--focus);
+  background: var(--focus);
+  color: var(--black);
+}
+.overview .validation h3 {
+  margin: var(--space-5) 0 var(--space-2);
+  font-size: 19px;
 }
 
 /* Confusion matrix and model table */

@@ -9,59 +9,25 @@ type Summary = {
   per_class_f1?: Record<string, number>;
   confusion?: { labels: string[]; counts: number[][] };
   n?: number;
-  gap?: { mean_train_expected_cost: number; mean_validation_expected_cost: number };
 };
 
 type FoldStat = { cost_mean: number; cost_std: number; agreement_mean?: number };
 
 type Review = {
-  raw_features: number;
-  model_features: number;
-  desk_features?: number;
-  dropped_groups: string[];
-  folds: string;
-  models: Record<string, FoldStat & { better_than_best_single?: boolean }>;
+  models: Record<string, FoldStat>;
   preferred: string;
-  held_out: { expected_cost: number; agreement: number; wrongful_closes: number };
-  leave_one_institution_out: Record<string, number>;
-  reason_code: { agreement_mean: number; agreement_std: number };
-  label_noise: { flip_5: number; flip_10: number };
-  calibration_note?: string;
 };
 
 type Report = {
-  why: string;
-  inner_winner: string;
-  n_cases: number;
-  n_atomic_features: number;
-  split: { train_n: number; test_n: number; method: string };
   comparison_on_train_oof: Record<string, Summary>;
   group_ablation: { group: string; validation_cost_increase: number; earns_place: boolean }[];
-  test_once: Summary & { model: string; policy_expected_cost: number };
-  frozen_close_threshold: { threshold: number };
-  calibration?: {
-    used?: string;
-    note?: string;
-    isotonic_expected_cost?: number;
-    raw_expected_cost?: number;
-  };
   review?: Review;
-  link_features?: {
-    kept: boolean;
-    expected_cost_without: number;
-    expected_cost_with: number;
-    note: string;
-  };
-  outer_folds?: number;
   leave_one_institution_out?: Record<string, Summary>;
   desk_model?: DeskModel;
 };
 
 type DeskModel = {
   used: boolean;
-  features: number;
-  cases_it_cannot_close: number;
-  policy_closes_without_document: number;
   out_of_fold: Summary;
   leave_one_institution_out: Record<string, Summary>;
   unseen_firm_all: Summary;
@@ -183,107 +149,40 @@ function ModelTab({ report }: { report: Report | null }) {
   const desk = report?.desk_model;
   return (
     <>
-      <p className="lede">
-        The policy engine writes every recommendation. A separate model is trained to reproduce it
-        and runs on the desk as a cross-check.
-      </p>
       <ModelDiagram />
 
-      <h2>What the figures mean</h2>
-      <p>
-        The labels are the policy engine’s own verdicts. There is no hidden answer key. The figures
-        below measure how faithfully a model can reproduce the written rules, and how well that
-        carries over to a firm it has not seen. They do not say whether the rules are right.
-      </p>
-      <p>
-        Validation is 5-fold StratifiedGroupKFold, grouped by customer, so one customer’s cases
-        never sit on both sides of a split. Tree settings are tuned inside each training fold only.
-        Before any of that, 20% of customers are set aside and scored once at the end.
-      </p>
-      <p>
-        To test a firm the model has not seen, it is trained on three firms and scored on the
-        fourth, in turn. The four results are pooled. This is the hardest of the three checks.
-      </p>
-      <p>
-        Errors are weighted by a scoring matrix. A wrong close costs 10, a missed close costs 3, and
-        swapping a request for information with an escalation costs 2. Expected cost is the average
-        per case.
+      {desk?.used ? (
+        <div className="kpis">
+          <Tile label="Accuracy, known firms (out of fold)" block={desk.out_of_fold} />
+          <Tile label="Accuracy, held-out customers" block={desk.test_once} />
+          <Tile label="Accuracy, unseen firm" block={desk.unseen_firm_all} />
+          <article className="kpi escalate">
+            <p className="kpi-label">Wrong closes, unseen firm</p>
+            <p className="kpi-value nums">{percent(desk.unseen_firm_all.wrongful_close_rate)}</p>
+            <p className="kpi-note">
+              Before: {percent(desk.unseen_firm_all_previous.wrongful_close_rate)}
+            </p>
+          </article>
+        </div>
+      ) : (
+        <p>The figures are not loaded yet.</p>
+      )}
+      <p className="caption">
+        Labels are the policy engine’s own verdicts; figures show how well the model reproduces
+        them.
       </p>
 
-      {desk?.used ? (
-        <>
-          <h2>Headline figures</h2>
-          <div className="kpis">
-            <Tile label="Known firms, out of fold" block={desk.out_of_fold} />
-            <Tile label="Held-out customers" block={desk.test_once} />
-            <Tile label="A firm not seen in training" block={desk.unseen_firm_all} />
-            <article className="kpi escalate">
-              <p className="kpi-label">Wrong closes, unseen firm</p>
-              <p className="kpi-value nums">{percent(desk.unseen_firm_all.wrongful_close_rate)}</p>
-              <p className="kpi-note">
-                Was {percent(desk.unseen_firm_all_previous.wrongful_close_rate)} with the previous
-                model
-              </p>
-            </article>
-          </div>
-          {desk.unseen_firm_all.confusion ? (
+      {report ? (
+        <details className="validation">
+          <summary>Validation details</summary>
+          {desk?.used && desk.unseen_firm_all.confusion ? (
             <Confusion confusion={desk.unseen_firm_all.confusion} />
           ) : null}
-        </>
-      ) : null}
-
-      {report?.review ? <ModelTable review={report.review} /> : null}
-
-      {report?.review ? (
-        <ReviewProse review={report.review} calibration={report.calibration?.note} />
-      ) : null}
-      {report?.desk_model?.used && report.leave_one_institution_out ? (
-        <UnseenFirm desk={report.desk_model} previous={report.leave_one_institution_out} />
-      ) : null}
-      {report ? (
-        <>
-          <p>{report.why}</p>
-          <div className="table-wrap">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Check</th>
-                  <th className="num">Cost</th>
-                  <th className="num">On the training customers</th>
-                  <th className="num">On the held-aside fold</th>
-                </tr>
-              </thead>
-              <tbody>
-                {Object.entries(report.comparison_on_train_oof).map(([name, block]) => (
-                  <tr key={name}>
-                    <td>{plainName(name)}</td>
-                    <td className="num nums">{block.expected_cost.toFixed(3)}</td>
-                    <td className="num nums">
-                      {block.gap ? block.gap.mean_train_expected_cost.toFixed(3) : "—"}
-                    </td>
-                    <td className="num nums">
-                      {block.gap ? block.gap.mean_validation_expected_cost.toFixed(3) : "—"}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <p>
-            The held-out customers ({report.split.test_n.toLocaleString("en-GB")}) cost{" "}
-            {report.test_once.expected_cost.toFixed(3)} for the chosen check, against{" "}
-            {report.test_once.policy_expected_cost.toFixed(2)} for the recommendation itself. The
-            recommendation is what gets written.
-          </p>
-          {report.link_features ? (
-            <p>
-              Counts of linked cases were tried inside the training folds only.{" "}
-              {report.link_features.note} Cost without them{" "}
-              {report.link_features.expected_cost_without.toFixed(3)}, with them{" "}
-              {report.link_features.expected_cost_with.toFixed(3)}.
-            </p>
+          {report.review ? <ModelTable review={report.review} /> : null}
+          {desk?.used && report.leave_one_institution_out ? (
+            <UnseenFirm desk={desk} previous={report.leave_one_institution_out} />
           ) : null}
-          <h2>Which groups of facts were useful</h2>
+          <h3>Fact groups</h3>
           <div className="table-wrap">
             <table className="data-table">
               <thead>
@@ -296,7 +195,7 @@ function ModelTab({ report }: { report: Report | null }) {
               <tbody>
                 {report.group_ablation.map((item) => (
                   <tr key={item.group}>
-                    <td>{item.group.replaceAll("_", " ")}</td>
+                    <td>{plainName(item.group)}</td>
                     <td className="num nums">{item.validation_cost_increase.toFixed(3)}</td>
                     <td>{item.earns_place ? "Yes" : "No"}</td>
                   </tr>
@@ -304,15 +203,8 @@ function ModelTab({ report }: { report: Report | null }) {
               </tbody>
             </table>
           </div>
-          <p className="meta">
-            {report.n_cases.toLocaleString("en-GB")} cases, {report.n_atomic_features} facts,{" "}
-            {report.outer_folds ?? 5}-fold check. Chosen on the training customers:{" "}
-            {plainName(report.inner_winner)}.
-          </p>
-        </>
-      ) : (
-        <p>The check figures are not loaded yet.</p>
-      )}
+        </details>
+      ) : null}
     </>
   );
 }
@@ -330,7 +222,7 @@ function Tile({ label, block }: { label: string; block: Summary }) {
       <p className="kpi-label">{label}</p>
       <p className="kpi-value nums">{percent(accuracy(block))}</p>
       <p className="kpi-note">
-        Accuracy. Macro-F1 {block.macro_f1?.toFixed(3) ?? "—"}
+        Macro-F1 {block.macro_f1?.toFixed(3) ?? "—"}
         {block.n ? `, ${block.n.toLocaleString("en-GB")} cases` : ""}
       </p>
     </article>
@@ -346,11 +238,7 @@ const VERDICTS: Record<string, string> = {
 function Confusion({ confusion }: { confusion: { labels: string[]; counts: number[][] } }) {
   return (
     <>
-      <h2>Unseen firm: policy verdict against model</h2>
-      <p>
-        Each row is the policy engine’s verdict. Each column is what the model chose. Shading shows
-        the share of the row.
-      </p>
+      <h3>Unseen firm: policy verdict (rows) against model (columns)</h3>
       <div className="table-wrap">
         <table className="data-table confusion">
           <thead>
@@ -406,14 +294,13 @@ const MODEL_NAMES: Record<string, string> = {
 function ModelTable({ review }: { review: Review }) {
   return (
     <>
-      <h2>Models compared</h2>
-      <p>Expected cost on known firms, mean and spread across the 5 folds. Lower is better.</p>
+      <h3>Models compared, known firms</h3>
       <div className="table-wrap">
         <table className="data-table">
           <thead>
             <tr>
               <th>Model</th>
-              <th className="num">Cost</th>
+              <th className="num">Cost (lower is better)</th>
               <th className="num">Agreement</th>
               <th>Status</th>
             </tr>
@@ -432,33 +319,6 @@ function ModelTable({ review }: { review: Review }) {
           </tbody>
         </table>
       </div>
-      {review.preferred === "two_stage" ? (
-        <p>
-          The two-stage model reads only the {review.desk_features} facts that mean the same at
-          every firm. That matters most on a firm it has not seen, which is why it is the one in
-          use.
-        </p>
-      ) : null}
-    </>
-  );
-}
-
-function ReviewProse({ review, calibration }: { review: Review; calibration?: string }) {
-  const firm = review.leave_one_institution_out;
-  return (
-    <>
-      <p>
-        On the held-out customers the cost is {review.held_out.expected_cost.toFixed(3)}, agreement
-        is {(review.held_out.agreement * 100).toFixed(1)}%, and wrongful closes are{" "}
-        {review.held_out.wrongful_closes}. Leaving one firm out costs {firm.bank?.toFixed(2)} for
-        the bank, {firm.emoney?.toFixed(2)} for e-money, {firm.investment?.toFixed(2)} for the
-        investment firm, and {firm.payments_fx?.toFixed(2)} for payments.{" "}
-        {calibration ?? "Raw probabilities are used."} A separate check of the reason code agrees{" "}
-        {(review.reason_code.agreement_mean * 100).toFixed(1)}% of the time, with a spread of{" "}
-        {(review.reason_code.agreement_std * 100).toFixed(1)} points. Flipping 5% of the labels
-        raises the cost to {review.label_noise.flip_5.toFixed(3)}. Flipping 10% raises it to{" "}
-        {review.label_noise.flip_10.toFixed(3)}.
-      </p>
     </>
   );
 }
@@ -468,19 +328,7 @@ function UnseenFirm({ desk, previous }: { desk: DeskModel; previous: Record<stri
   const before = desk.unseen_firm_all_previous;
   return (
     <>
-      <h2>A firm the model has not seen</h2>
-      <p>
-        The desk model is trained on three firms and scored on the fourth, in turn. It leaves out
-        counts and sizes, which move with each firm’s book, and folds every document type into a
-        kind such as invoice, statement or takings record. It first decides close or not, then ask
-        or escalate. It picks the verdict with the lowest expected cost under the scoring matrix,
-        and it may not close a case with no supporting document on file. That blocks a close on{" "}
-        {desk.cases_it_cannot_close.toLocaleString("en-GB")} cases, and{" "}
-        {desk.policy_closes_without_document === 0
-          ? "none of the recommended closes are among them"
-          : `${desk.policy_closes_without_document} recommended closes are among them`}
-        .
-      </p>
+      <h3>Unseen firm, one firm left out at a time</h3>
       <div className="table-wrap">
         <table className="data-table">
           <thead>
@@ -518,7 +366,7 @@ function UnseenFirm({ desk, previous }: { desk: DeskModel; previous: Record<stri
           </tbody>
         </table>
       </div>
-      <h2>F1 by verdict</h2>
+      <h3>F1 by verdict</h3>
       <div className="table-wrap">
         <table className="data-table">
           <thead>
