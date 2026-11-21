@@ -6,7 +6,7 @@ namespace Forge.Api;
 
 public sealed class WorkStore
 {
-    public const string EngineVersion = "forge-sop-3";
+    public const string EngineVersion = "forge-sop-4";
     private readonly string _path;
     private readonly object _gate = new();
     private Store _store;
@@ -63,6 +63,7 @@ public sealed class WorkStore
                 {
                     if (EnsureEscalated(key, seed, syncedAt)) changed = true;
                     if (ReleaseEscalation(key, seed)) changed = true;
+                    if (NoteDisagreement(seed, syncedAt)) changed = true;
                     continue;
                 }
                 if (!_store.Cases.TryGetValue(key, out var state))
@@ -105,6 +106,7 @@ public sealed class WorkStore
                     Confidence = confidence,
                 });
                 changed = true;
+                if (NoteDisagreement(seed, syncedAt)) changed = true;
             }
             if (changed)
             {
@@ -239,6 +241,48 @@ public sealed class WorkStore
     public IReadOnlyList<JobRow> Jobs()
     {
         lock (_gate) return _store.Jobs.Take(40).ToList();
+    }
+
+    private bool NoteDisagreement(PolicySeed seed, string syncedAt)
+    {
+        var expected = ExpectedVerdict(seed);
+        if (expected.Length == 0 || expected == seed.Verdict) return false;
+        var detail = $"Second check disagrees: model expects {expected}.";
+        var already = _store.Events.Any(row =>
+            row.Action == "second-check"
+            && row.Institution == seed.Institution
+            && row.CaseId == seed.CaseId
+            && row.Detail == detail);
+        if (already) return false;
+        _store.Events.Insert(0, new AuditRow
+        {
+            Id = Guid.NewGuid().ToString("N"),
+            At = syncedAt,
+            Kind = "model",
+            Actor = "second-check",
+            Action = "second-check",
+            Institution = seed.Institution,
+            CaseId = seed.CaseId,
+            Detail = detail,
+            Agent = "second-check",
+            Model = EngineVersion,
+            MlModel = MlModel,
+            Verdict = expected,
+            ReasonCode = seed.ReasonCode,
+            Confidence = Confidence(seed),
+        });
+        return true;
+    }
+
+    private static string ExpectedVerdict(PolicySeed seed)
+    {
+        var close = seed.PClose ?? 0;
+        var rfi = seed.PRfi ?? 0;
+        var escalate = seed.PEscalate ?? 0;
+        if (close <= 0 && rfi <= 0 && escalate <= 0) return "";
+        if (rfi >= close && rfi >= escalate) return "RFI";
+        if (escalate >= close && escalate >= rfi) return "ESCALATE";
+        return "CLOSE";
     }
 
     private bool EnsureEscalated(string key, PolicySeed seed, string syncedAt)

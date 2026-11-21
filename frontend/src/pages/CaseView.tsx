@@ -385,20 +385,29 @@ export function CaseView() {
         </summary>
         <div className="fold-body">
           {data.risk ? (
-            <dl className="summary">
-              <div className="summary-row">
-                <dt>Close</dt>
-                <dd className="nums">{data.risk.pClose.toFixed(2)}</dd>
-              </div>
-              <div className="summary-row">
-                <dt>Ask</dt>
-                <dd className="nums">{data.risk.pRfi.toFixed(2)}</dd>
-              </div>
-              <div className="summary-row">
-                <dt>Escalate</dt>
-                <dd className="nums">{data.risk.pEscalate.toFixed(2)}</dd>
-              </div>
-            </dl>
+            <>
+              {data.decision ? (
+                secondCheck(data.decision.verdict, data.risk) ? (
+                  <p>{secondCheck(data.decision.verdict, data.risk)}</p>
+                ) : (
+                  <p className="meta">Second check agrees with the recommendation.</p>
+                )
+              ) : null}
+              <dl className="summary">
+                <div className="summary-row">
+                  <dt>Close</dt>
+                  <dd className="nums">{data.risk.pClose.toFixed(2)}</dd>
+                </div>
+                <div className="summary-row">
+                  <dt>Ask</dt>
+                  <dd className="nums">{data.risk.pRfi.toFixed(2)}</dd>
+                </div>
+                <div className="summary-row">
+                  <dt>Escalate</dt>
+                  <dd className="nums">{data.risk.pEscalate.toFixed(2)}</dd>
+                </div>
+              </dl>
+            </>
           ) : (
             <p>No score is stored for this case.</p>
           )}
@@ -450,4 +459,18 @@ export function CaseView() {
       </details>
     </>
   );
+}
+
+function secondCheck(
+  verdict: string,
+  risk: { pClose: number; pRfi: number; pEscalate: number },
+): string | null {
+  const ranked = [
+    ["CLOSE", risk.pClose],
+    ["RFI", risk.pRfi],
+    ["ESCALATE", risk.pEscalate],
+  ] as const;
+  const best = ranked.reduce((left, right) => (right[1] > left[1] ? right : left));
+  if (best[1] <= 0 || best[0] === verdict) return null;
+  return `Second check disagrees: model expects ${best[0]}.`;
 }

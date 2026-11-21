@@ -6,6 +6,22 @@ type Summary = {
   gap?: { mean_train_expected_cost: number; mean_validation_expected_cost: number };
 };
 
+type FoldStat = { cost_mean: number; cost_std: number; agreement_mean?: number };
+
+type Review = {
+  raw_features: number;
+  model_features: number;
+  dropped_groups: string[];
+  folds: string;
+  models: Record<string, FoldStat & { better_than_best_single?: boolean }>;
+  preferred: string;
+  held_out: { expected_cost: number; agreement: number; wrongful_closes: number };
+  leave_one_institution_out: Record<string, number>;
+  reason_code: { agreement_mean: number; agreement_std: number };
+  label_noise: { flip_5: number; flip_10: number };
+  calibration_note?: string;
+};
+
 type Report = {
   why: string;
   inner_winner: string;
@@ -16,6 +32,13 @@ type Report = {
   group_ablation: { group: string; validation_cost_increase: number; earns_place: boolean }[];
   test_once: Summary & { model: string; policy_expected_cost: number };
   frozen_close_threshold: { threshold: number };
+  calibration?: {
+    used?: string;
+    note?: string;
+    isotonic_expected_cost?: number;
+    raw_expected_cost?: number;
+  };
+  review?: Review;
   link_features?: {
     kept: boolean;
     expected_cost_without: number;
@@ -23,6 +46,7 @@ type Report = {
     note: string;
   };
   outer_folds?: number;
+  leave_one_institution_out?: Record<string, { expected_cost: number }>;
 };
 
 export function How() {
@@ -86,12 +110,16 @@ export function How() {
       <h2>Checking the recommendation</h2>
       <p>
         The labels used for the check are Forge’s own recommendations, not a hidden answer key.
-        Customers are kept together so one person is not split across the check. One fifth of
-        customers is held out and looked at once. On the rest, the choice between a tree model, a
-        simpler grouped version, and logistic regression is made with 5-fold grouped
-        cross-validation. A wrong close is counted as ten times as costly as failing to close a case
-        that could have been closed.
+        Customers are kept together. The check is 5-fold, grouped by customer, with an inner pass
+        for the tree settings and one fifth of customers held out and scored once. A wrong close
+        costs ten. Missing a close costs three. Mixing up an ask and an escalation costs two.
+        Leaving one firm out, and scoring the model on that firm alone, is much worse than scoring a
+        customer the model has not seen at a firm it has seen. The score is not loaded by{" "}
+        <span className="nums">system/run</span>.
       </p>
+      {report?.review ? (
+        <ReviewProse review={report.review} calibration={report.calibration?.note} />
+      ) : null}
       {report ? (
         <>
           <p>{report.why}</p>
@@ -163,6 +191,44 @@ export function How() {
       )}
     </>
   );
+}
+
+function ReviewProse({ review, calibration }: { review: Review; calibration?: string }) {
+  const model = review.models;
+  const firm = review.leave_one_institution_out;
+  return (
+    <>
+      <p>
+        There are {review.raw_features} raw facts. The smaller model keeps {review.model_features}{" "}
+        of them and drops the customer, history and list groups. Out of fold, gradient boosting
+        costs {band(model.lightgbm)}, XGBoost {band(model.xgboost)}, extra trees{" "}
+        {band(model.extra_trees)}, and logistic regression {band(model.logistic)}. A stack of the
+        tree models costs {band(model.stack)}
+        {model.stack?.better_than_best_single
+          ? ", which is better than the best single model."
+          : ", which is not better once the spread of the folds is taken into account."}{" "}
+        The {review.model_features}-feature model costs {band(model.lightgbm_ablated)}. That is the
+        one the desk uses.
+      </p>
+      <p>
+        On the held-out customers the cost is {review.held_out.expected_cost.toFixed(3)}, agreement
+        is {(review.held_out.agreement * 100).toFixed(1)}%, and wrongful closes are{" "}
+        {review.held_out.wrongful_closes}. Leaving one firm out costs {firm.bank?.toFixed(2)} for
+        the bank, {firm.emoney?.toFixed(2)} for e-money, {firm.investment?.toFixed(2)} for the
+        investment firm, and {firm.payments_fx?.toFixed(2)} for payments.{" "}
+        {calibration ?? "Raw probabilities are used."} A separate check of the reason code agrees{" "}
+        {(review.reason_code.agreement_mean * 100).toFixed(1)}% of the time, with a spread of{" "}
+        {(review.reason_code.agreement_std * 100).toFixed(1)} points. Flipping 5% of the labels
+        raises the cost to {review.label_noise.flip_5.toFixed(3)}. Flipping 10% raises it to{" "}
+        {review.label_noise.flip_10.toFixed(3)}.
+      </p>
+    </>
+  );
+}
+
+function band(stat: FoldStat | undefined) {
+  if (!stat) return "—";
+  return `${stat.cost_mean.toFixed(3)} plus or minus ${stat.cost_std.toFixed(3)}`;
 }
 
 function plainName(name: string) {
