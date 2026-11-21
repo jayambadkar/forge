@@ -3,6 +3,8 @@ import { useEffect, useState } from "react";
 type Summary = {
   expected_cost: number;
   wrongful_close_rate: number;
+  macro_f1?: number;
+  per_class_f1?: Record<string, number>;
   gap?: { mean_train_expected_cost: number; mean_validation_expected_cost: number };
 };
 
@@ -46,7 +48,27 @@ type Report = {
     note: string;
   };
   outer_folds?: number;
-  leave_one_institution_out?: Record<string, { expected_cost: number }>;
+  leave_one_institution_out?: Record<string, Summary>;
+  desk_model?: DeskModel;
+};
+
+type DeskModel = {
+  used: boolean;
+  features: number;
+  cases_it_cannot_close: number;
+  policy_closes_without_document: number;
+  out_of_fold: Summary;
+  leave_one_institution_out: Record<string, Summary>;
+  unseen_firm_all: Summary;
+  unseen_firm_all_previous: Summary;
+  test_once: Summary;
+};
+
+const FIRMS: Record<string, string> = {
+  bank: "Bank",
+  emoney: "E-money",
+  investment: "Investment",
+  payments_fx: "Payments & FX",
 };
 
 export function How() {
@@ -119,6 +141,9 @@ export function How() {
       </p>
       {report?.review ? (
         <ReviewProse review={report.review} calibration={report.calibration?.note} />
+      ) : null}
+      {report?.desk_model?.used && report.leave_one_institution_out ? (
+        <UnseenFirm desk={report.desk_model} previous={report.leave_one_institution_out} />
       ) : null}
       {report ? (
         <>
@@ -207,8 +232,16 @@ function ReviewProse({ review, calibration }: { review: Review; calibration?: st
         {model.stack?.better_than_best_single
           ? ", which is better than the best single model."
           : ", which is not better once the spread of the folds is taken into account."}{" "}
-        The {review.model_features}-feature model costs {band(model.lightgbm_ablated)}. That is the
-        one the desk uses.
+        The smaller boosted model costs {band(model.lightgbm_ablated)}.
+        {review.preferred === "two_stage" ? (
+          <>
+            {" "}
+            The desk uses a two-stage model on {review.model_features} facts that read the same at
+            every firm. It costs {band(model.two_stage)}.
+          </>
+        ) : (
+          " That is the one the desk uses."
+        )}
       </p>
       <p>
         On the held-out customers the cost is {review.held_out.expected_cost.toFixed(3)}, agreement
@@ -224,6 +257,96 @@ function ReviewProse({ review, calibration }: { review: Review; calibration?: st
       </p>
     </>
   );
+}
+
+function UnseenFirm({ desk, previous }: { desk: DeskModel; previous: Record<string, Summary> }) {
+  const all = desk.unseen_firm_all;
+  const before = desk.unseen_firm_all_previous;
+  return (
+    <>
+      <h2>A firm the model has not seen</h2>
+      <p>
+        The desk model is trained on three firms and scored on the fourth, in turn. It leaves out
+        counts and sizes, which move with each firm’s book, and folds every document type into a
+        kind such as invoice, statement or takings record. It first decides close or not, then ask
+        or escalate. It picks the verdict with the lowest expected cost under the scoring matrix,
+        and it may not close a case with no supporting document on file. That blocks a close on{" "}
+        {desk.cases_it_cannot_close.toLocaleString("en-GB")} cases, and{" "}
+        {desk.policy_closes_without_document === 0
+          ? "none of the recommended closes are among them"
+          : `${desk.policy_closes_without_document} recommended closes are among them`}
+        .
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th>Firm left out</th>
+            <th>Cost before</th>
+            <th>Cost now</th>
+            <th>Wrong closes before</th>
+            <th>Wrong closes now</th>
+            <th>Macro F1 before</th>
+            <th>Macro F1 now</th>
+          </tr>
+        </thead>
+        <tbody>
+          {Object.entries(desk.leave_one_institution_out).map(([firm, block]) => (
+            <tr key={firm}>
+              <td>{FIRMS[firm] ?? firm}</td>
+              <td className="nums">{previous[firm]?.expected_cost.toFixed(2) ?? "—"}</td>
+              <td className="nums">{block.expected_cost.toFixed(2)}</td>
+              <td className="nums">{percent(previous[firm]?.wrongful_close_rate)}</td>
+              <td className="nums">{percent(block.wrongful_close_rate)}</td>
+              <td className="nums">{previous[firm]?.macro_f1?.toFixed(3) ?? "—"}</td>
+              <td className="nums">{block.macro_f1?.toFixed(3) ?? "—"}</td>
+            </tr>
+          ))}
+          <tr>
+            <td>All four</td>
+            <td className="nums">{before.expected_cost.toFixed(2)}</td>
+            <td className="nums">{all.expected_cost.toFixed(2)}</td>
+            <td className="nums">{percent(before.wrongful_close_rate)}</td>
+            <td className="nums">{percent(all.wrongful_close_rate)}</td>
+            <td className="nums">{before.macro_f1?.toFixed(3) ?? "—"}</td>
+            <td className="nums">{all.macro_f1?.toFixed(3) ?? "—"}</td>
+          </tr>
+        </tbody>
+      </table>
+      <h2>F1 by verdict</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Scored on</th>
+            <th>Close</th>
+            <th>Ask</th>
+            <th>Escalate</th>
+            <th>Macro</th>
+          </tr>
+        </thead>
+        <tbody>
+          {(
+            [
+              ["Known firms, out of fold", desk.out_of_fold],
+              ["Held-out customers", desk.test_once],
+              ["A firm left out", all],
+            ] as const
+          ).map(([label, block]) => (
+            <tr key={label}>
+              <td>{label}</td>
+              <td className="nums">{block.per_class_f1?.CLOSE?.toFixed(3) ?? "—"}</td>
+              <td className="nums">{block.per_class_f1?.RFI?.toFixed(3) ?? "—"}</td>
+              <td className="nums">{block.per_class_f1?.ESCALATE?.toFixed(3) ?? "—"}</td>
+              <td className="nums">{block.macro_f1?.toFixed(3) ?? "—"}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </>
+  );
+}
+
+function percent(rate: number | undefined) {
+  return rate === undefined ? "—" : `${(rate * 100).toFixed(1)}%`;
 }
 
 function band(stat: FoldStat | undefined) {
