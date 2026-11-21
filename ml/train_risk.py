@@ -1138,7 +1138,7 @@ def main() -> int:
     report = {
         "label_source": "Weak supervision: priority vote of the policy checks. Not hidden-test labels.",
         "ship_into_system_run": ship,
-        "why": "The hold-out is scored against the policy votes. The policy matches those votes,"
+        "why": "The hold-out is scored against the policy votes. The policy matches those votes, "
         "so its expected cost is 0. The model is not loaded by system/run.",
         "groups": {name: list(members) for name, members in GROUPS.items()},
         "split": {
@@ -1181,7 +1181,8 @@ def main() -> int:
         },
         "review": {
             "raw_features": 48,
-            "model_features": len(desk_names) if use_desk else (42 if chosen_name != "lightgbm_full" else 48),
+            "model_features": 42 if chosen_name != "lightgbm_full" else 48,
+            "desk_features": len(desk_names),
             "dropped_groups": list(DROPPED_GROUPS),
             "folds": "5-fold StratifiedGroupKFold by customer, with a 20% grouped hold-out not used for tuning.",
             "models": {

@@ -1,7 +1,7 @@
 {
   "label_source": "Weak supervision: priority vote of the policy checks. Not hidden-test labels.",
   "ship_into_system_run": false,
-  "why": "The hold-out is scored against the policy votes. The policy matches those votes,so its expected cost is 0. The model is not loaded by system/run.",
+  "why": "The hold-out is scored against the policy votes. The policy matches those votes, so its expected cost is 0. The model is not loaded by system/run.",
   "groups": {
     "evidence_coverage": [
       "n_docs",
@@ -1455,7 +1455,8 @@
   },
   "review": {
     "raw_features": 48,
-    "model_features": 77,
+    "model_features": 42,
+    "desk_features": 77,
     "dropped_groups": [
       "customer",
       "account_history",
