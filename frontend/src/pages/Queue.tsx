@@ -64,6 +64,16 @@ export function Queue() {
       .finally(() => setLoading(false));
   }, [institution, verdict, reason, q, rule, risk, status, sort, page]);
 
+  useEffect(() => {
+    try {
+      const kept = new URLSearchParams(params);
+      kept.delete("page");
+      sessionStorage.setItem("forge.queue", kept.toString());
+    } catch {
+      // Storage can be off. The case page then walks the whole firm.
+    }
+  }, [params]);
+
   const current = institutions.find((item) => item.id === institution);
   const reasons = useMemo(() => current?.reasons ?? [], [current]);
   const pages = Math.max(1, Math.ceil(total / PAGE));
@@ -139,7 +149,7 @@ export function Queue() {
         >
           <option value="">All recommendations</option>
           <option value="CLOSE">Close</option>
-          <option value="RFI">Ask</option>
+          <option value="RFI">Request information</option>
           <option value="ESCALATE">Escalate</option>
         </select>
         <select

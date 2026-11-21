@@ -23,7 +23,6 @@ const titles: Record<string, string> = {
 
 export function Shell() {
   const location = useLocation();
-  const [environment, setEnvironment] = useState("Production · EU-West");
   const [syncedAt, setSyncedAt] = useState("");
   const [open, setOpen] = useState(false);
   const [unread, setUnread] = useState(0);
@@ -40,7 +39,6 @@ export function Shell() {
   useEffect(() => {
     fetchHealth()
       .then((health) => {
-        setEnvironment(health.environment);
         setSyncedAt(health.syncedAt);
       })
       .catch(() => undefined);
@@ -76,7 +74,6 @@ export function Shell() {
             </svg>
             Forge
           </NavLink>
-          <p className="badge">{environment}</p>
           <div className="top-tools">
             <p className="sync">{syncedAt ? `Books synced ${when(syncedAt)}` : "Syncing books"}</p>
             <button

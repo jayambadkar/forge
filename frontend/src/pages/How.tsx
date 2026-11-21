@@ -319,7 +319,7 @@ function UnseenFirm({ desk, previous }: { desk: DeskModel; previous: Record<stri
           <tr>
             <th>Scored on</th>
             <th>Close</th>
-            <th>Ask</th>
+            <th>Request info</th>
             <th>Escalate</th>
             <th>Macro</th>
           </tr>

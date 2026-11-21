@@ -2,9 +2,12 @@ import { useEffect, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { act, fetchCase } from "../api";
 import { ExportMenu } from "../components/ExportMenu";
+import { AuditEntry } from "../components/AuditEntry";
+import { CaseNav } from "../components/CaseNav";
 import { Markdown } from "../components/Markdown";
+import { CrossCheck, Recommendation } from "../components/Recommendation";
 import { VerdictPill } from "../components/Verdict";
-import { gbp, labelFor, mailto, openLabel, when } from "../format";
+import { gbp, labelFor, mailto, openLabel, verdictLabel, when } from "../format";
 import type { CaseDetail } from "../types";
 
 const ANALYST = "Amira Okonkwo";
@@ -20,6 +23,7 @@ export function CaseView() {
   const [note, setNote] = useState("");
   const [override, setOverride] = useState("RFI");
   const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState("");
 
   function load() {
     setError("");
@@ -37,6 +41,7 @@ export function CaseView() {
 
   useEffect(() => {
     setData(null);
+    setDone("");
     void load();
     // load closes over the route params already listed.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -48,6 +53,7 @@ export function CaseView() {
     try {
       await act(institution, caseId, { action, actor: ANALYST, ...extra });
       setNote("");
+      setDone(DONE[action] ?? "Saved.");
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "The action failed");
@@ -68,7 +74,6 @@ export function CaseView() {
   const citedDocs = data.evidence.filter((item) => item.cited).length;
   const timeline = showAll ? data.timeline : data.timeline.filter((txn) => txn.inAlert);
   const maxAmount = Math.max(1, ...timeline.map((txn) => txn.amount));
-  const tone = (data.decision?.verdict || "escalate").toLowerCase();
   const alertAmount = data.timeline
     .filter((txn) => txn.inAlert)
     .reduce((sum, txn) => sum + txn.amount, 0);
@@ -116,6 +121,7 @@ export function CaseView() {
         <Link to={`/?institution=${institution}`}>{labelFor(institution)}</Link> /{" "}
         <span className="nums">{data.caseId}</span>
       </p>
+      <CaseNav institution={institution} caseId={caseId} />
       <h1>
         {data.customer.name || data.caseId} <VerdictPill verdict={data.decision?.verdict ?? ""} />
       </h1>
@@ -124,14 +130,7 @@ export function CaseView() {
           {error}
         </div>
       ) : null}
-      {data.decision ? (
-        <div className={`banner ${tone}`} role="status">
-          <p className="caption">Recommendation from Forge</p>
-          <p>{data.decision.reason}</p>
-        </div>
-      ) : (
-        <p>No recommendation has been written for this case.</p>
-      )}
+      <Recommendation data={data} amount={alertAmount} />
       <p className="meta">
         {labelFor(institution)} · {openLabel(data.openedAt)} ·{" "}
         <span className="nums">{gbp(alertAmount)}</span>
@@ -165,8 +164,8 @@ export function CaseView() {
                 onChange={(event) => setOverride(event.target.value)}
               >
                 <option value="CLOSE">Close</option>
-                <option value="RFI">Ask</option>
-                <option value="ESCALATE">Escalate</option>
+                <option value="RFI">Request information from the customer</option>
+                <option value="ESCALATE">Escalate to the MLRO</option>
               </select>
             </label>
             <label>
@@ -186,9 +185,10 @@ export function CaseView() {
           </form>
         </details>
         <a className="button-link" href={draft}>
-          Draft email
+          {data.decision?.verdict === "ESCALATE" ? "Draft MLRO email" : "Draft customer email"}
         </a>
       </div>
+      <AnalystDecision data={data} done={done} />
 
       <details className="fold" open={expand}>
         <summary>
@@ -386,36 +386,10 @@ export function CaseView() {
 
       <details className="fold" open={expand}>
         <summary>
-          Score <span>Does not change the recommendation</span>
+          Model cross-check <span>{crossCheckSummary(data)}</span>
         </summary>
         <div className="fold-body">
-          {data.risk ? (
-            <>
-              {data.decision ? (
-                secondCheck(data.decision.verdict, data.risk) ? (
-                  <p>{secondCheck(data.decision.verdict, data.risk)}</p>
-                ) : (
-                  <p className="meta">Second check agrees with the recommendation.</p>
-                )
-              ) : null}
-              <dl className="summary">
-                <div className="summary-row">
-                  <dt>Close</dt>
-                  <dd className="nums">{data.risk.pClose.toFixed(2)}</dd>
-                </div>
-                <div className="summary-row">
-                  <dt>Ask</dt>
-                  <dd className="nums">{data.risk.pRfi.toFixed(2)}</dd>
-                </div>
-                <div className="summary-row">
-                  <dt>Escalate</dt>
-                  <dd className="nums">{data.risk.pEscalate.toFixed(2)}</dd>
-                </div>
-              </dl>
-            </>
-          ) : (
-            <p>No score is stored for this case.</p>
-          )}
+          <CrossCheck data={data} />
         </div>
       </details>
 
@@ -429,27 +403,7 @@ export function CaseView() {
           ) : (
             <ol className="audit-list">
               {data.trail.map((event) => (
-                <li key={event.id}>
-                  <p className="caption">
-                    {when(event.at)} · {event.actor}
-                  </p>
-                  <p>{event.detail}</p>
-                  {event.kind === "ai" ? (
-                    <p className="meta">
-                      {event.agent || "Forge"} {event.model} · score {event.mlModel}{" "}
-                      {event.confidence?.toFixed(2) ?? "—"} · reviewer {event.llm} · job{" "}
-                      {event.jobId}
-                      {event.rules?.length ? ` · rules ${event.rules.join(" ")}` : ""}
-                      {event.evidence?.length ? ` · evidence ${event.evidence.join(" ")}` : ""}
-                    </p>
-                  ) : null}
-                  {event.before ? (
-                    <p className="meta">
-                      {event.before} → {event.after}
-                    </p>
-                  ) : null}
-                  {event.note ? <p>Note: {event.note}</p> : null}
-                </li>
+                <AuditEntry key={event.id} event={event} />
               ))}
             </ol>
           )}
@@ -466,18 +420,53 @@ export function CaseView() {
   );
 }
 
-function secondCheck(
-  verdict: string,
-  risk: { pClose: number; pRfi: number; pEscalate: number },
-): string | null {
-  const ranked = [
-    ["CLOSE", risk.pClose],
-    ["RFI", risk.pRfi],
-    ["ESCALATE", risk.pEscalate],
-  ] as const;
-  const best = ranked.reduce((left, right) => (right[1] > left[1] ? right : left));
-  if (best[1] <= 0 || best[0] === verdict) return null;
-  return `Second check disagrees: model expects ${best[0]}.`;
+const DONE: Record<string, string> = {
+  accept: "Recommendation accepted. Logged in the audit trail.",
+  override: "Override saved. Logged in the audit trail with your note.",
+  assign: "Case assigned to you.",
+  rfi: "Request marked as sent.",
+};
+
+function crossCheckSummary(data: CaseDetail) {
+  if (!data.risk || !data.decision) return "No estimate";
+  const ranked: [string, number][] = [
+    ["CLOSE", data.risk.pClose],
+    ["RFI", data.risk.pRfi],
+    ["ESCALATE", data.risk.pEscalate],
+  ];
+  const top = ranked.reduce((left, right) => (right[1] > left[1] ? right : left));
+  return top[0] === data.decision.verdict ? "Model agrees" : "Model differs, take a second look";
+}
+
+function AnalystDecision({ data, done }: { data: CaseDetail; done: string }) {
+  const last = data.trail.find(
+    (event) => event.kind === "human" && (event.action === "accept" || event.action === "override"),
+  );
+  return (
+    <div className="analyst" role="status">
+      {done ? <p className="done">{done}</p> : null}
+      <dl className="facts">
+        <dt>Analyst decision</dt>
+        <dd>
+          {last ? (
+            <>
+              <strong>{verdictLabel(data.work.decidedVerdict)}</strong>
+              {last.action === "override" ? " (overridden)" : " (recommendation accepted)"} by{" "}
+              {last.actor}, {when(last.at)}
+            </>
+          ) : (
+            "Not decided yet"
+          )}
+        </dd>
+        <dt>Status</dt>
+        <dd>
+          {data.work.status || "New"}
+          {data.work.assignee ? ` · owner ${data.work.assignee}` : " · no owner"}
+          {data.work.rfiSent ? " · request sent" : ""}
+        </dd>
+      </dl>
+    </div>
+  );
 }
 
 function plural(count: number, noun: string): string {

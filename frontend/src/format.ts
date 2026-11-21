@@ -57,3 +57,58 @@ export function labelFor(id: string) {
     }[id] ?? id
   );
 }
+
+export const VERDICT_LABEL: Record<string, string> = {
+  CLOSE: "Close",
+  RFI: "Request information",
+  ESCALATE: "Escalate to MLRO",
+};
+
+export function verdictLabel(verdict: string | undefined) {
+  return verdict ? (VERDICT_LABEL[verdict] ?? verdict) : "—";
+}
+
+const REASON_LABEL: Record<string, string> = {
+  COLLECTION_DOCUMENTED: "Cash collection is documented",
+  BUSINESS_RECORDS_RECONCILE: "Business records reconcile",
+  DOCUMENTED_EVENT: "A documented life or business event",
+  INVOICE_MATCHES: "Invoice or contract matches the payments",
+  OWN_ACCOUNT: "Transfer between the customer's own accounts",
+  GROUP_COMPANY: "Payment within the same group of companies",
+  THIRD_PARTY_DOCUMENTED: "Third party is documented",
+  REFUND_OF_EARLIER_PAYMENT: "Refund of an earlier payment",
+  RETURNING_CUSTOMER: "Covered by an earlier review",
+  LIST_MATCH_DIFFERENT_PARTY: "List match is a different person",
+  WITHIN_PROFILE: "Within the declared profile",
+  RFI_PURPOSE_DOCUMENTS: "Ask for documents showing the purpose",
+  RFI_BUSINESS_RECORDS: "Ask for business records",
+  RFI_SOURCE_OF_FUNDS: "Ask where the money came from",
+  RFI_COUNTERPARTY_DETAILS: "Ask who the counterparty is",
+  RFI_UPDATED_PROFILE: "Ask for an updated income or turnover",
+  ESC_MULE_ACTIVITY: "Possible money mule activity",
+  ESC_STRUCTURING: "Payments split to stay under a threshold",
+  ESC_UNEXPLAINED_FUNDS: "Unexplained funds moved on",
+  ESC_PASS_THROUGH: "Money passed straight through",
+  ESC_INVOICE_MISMATCH: "Invoices do not support the payments",
+  ESC_HIGH_RISK_CORRIDOR: "Undeclared higher-risk country",
+  ESC_ACCOUNT_MISUSE: "Account used for another purpose",
+  ESC_THIRD_PARTY_FUNDING: "Unexplained third-party funding",
+  ESC_EARLY_REDEMPTION: "Funds bought and quickly sold back",
+  ESC_LISTED_PARTY: "Confirmed match to the internal list",
+};
+
+export function reasonLabel(code: string | undefined) {
+  if (!code) return "—";
+  return REASON_LABEL[code] ?? code.replaceAll("_", " ").toLowerCase();
+}
+
+export function sentences(text: string | undefined) {
+  return (text || "")
+    .split(/(?<=[.!?])\s+(?=[A-Z£0-9])/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+}
+
+export function percent(value: number) {
+  return `${Math.round(value * 100)}%`;
+}

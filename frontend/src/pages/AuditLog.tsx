@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
 import { fetchAudit } from "../api";
+import { AuditEntry } from "../components/AuditEntry";
 import { ExportMenu } from "../components/ExportMenu";
-import { labelFor, when } from "../format";
 import type { AuditEvent } from "../types";
 
 export function AuditLog() {
@@ -42,7 +41,8 @@ export function AuditLog() {
       <div className="toolbar">
         <select aria-label="Kind" value={kind} onChange={(event) => setKind(event.target.value)}>
           <option value="">All events</option>
-          <option value="ai">Recommendation</option>
+          <option value="ai">Policy engine</option>
+          <option value="model">Model cross-check</option>
           <option value="human">Analyst</option>
           <option value="system">Batch jobs</option>
         </select>
@@ -76,31 +76,7 @@ export function AuditLog() {
       {!loading && rows.length === 0 ? <p>No events match these filters.</p> : null}
       <ol className="audit-list">
         {rows.map((event) => (
-          <li key={event.id}>
-            <p className="caption">
-              {when(event.at)} · {event.kind} · {event.actor}
-              {event.institution ? ` · ${labelFor(event.institution)}` : ""}
-            </p>
-            <p>
-              {event.caseId ? (
-                <Link to={`/cases/${event.institution}/${event.caseId}`}>{event.caseId}</Link>
-              ) : (
-                "Batch"
-              )}{" "}
-              {event.detail}
-            </p>
-            {event.kind === "ai" ? (
-              <p className="meta">
-                {event.model} · {event.verdict} {event.reasonCode} · {event.mlModel}{" "}
-                {event.confidence?.toFixed(2) ?? ""} · job {event.jobId} · LLM {event.llm}
-              </p>
-            ) : null}
-            {event.before ? (
-              <p className="meta">
-                {event.before} → {event.after}
-              </p>
-            ) : null}
-          </li>
+          <AuditEntry key={event.id} event={event} showCase />
         ))}
       </ol>
     </>
