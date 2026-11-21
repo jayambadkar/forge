@@ -1,13 +1,68 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { fetchDashboard, fetchInstitutions } from "../api";
+import { act, fetchCases, fetchDashboard, fetchInstitutions } from "../api";
 import { reasonLabel, when } from "../format";
 import type { DashboardStats, Institution } from "../types";
+
+const AUTO_CLOSE = 0.95;
+
+function AutoClose({ onDone }: { onDone: () => void }) {
+  const [ids, setIds] = useState<{ institution: string; caseId: string }[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState(0);
+
+  useEffect(() => {
+    fetchCases({ verdict: "CLOSE", status: "New", limit: 5000 })
+      .then((page) =>
+        setIds(
+          page.cases
+            .filter((row) => row.pClose >= AUTO_CLOSE)
+            .map((row) => ({ institution: row.institution, caseId: row.caseId })),
+        ),
+      )
+      .catch(() => setIds([]));
+  }, [done]);
+
+  async function run() {
+    setBusy(true);
+    let count = 0;
+    for (const row of ids) {
+      await act(row.institution, row.caseId, { action: "accept", actor: "Forge auto-close" }).catch(
+        () => undefined,
+      );
+      count += 1;
+    }
+    setBusy(false);
+    setDone((value) => value + count);
+    onDone();
+  }
+
+  return (
+    <div className="toolbar">
+      <button
+        type="button"
+        className="primary"
+        disabled={busy || ids.length === 0}
+        title={`Closes cases where the rules recommend close and the model independently gives close ${Math.round(AUTO_CLOSE * 100)}% or more. Each one is written to the audit trail as "Forge auto-close".`}
+        onClick={() => {
+          void run();
+        }}
+      >
+        {busy ? "Closing…" : `Auto-close ${ids.length.toLocaleString("en-GB")} clear cases`}
+      </button>
+      {done ? (
+        <span>{done.toLocaleString("en-GB")} closed. The queue now holds the rest.</span>
+      ) : null}
+    </div>
+  );
+}
 
 export function Dashboard() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [firms, setFirms] = useState<Institution[]>([]);
   const [error, setError] = useState("");
+
+  const [reload, setReload] = useState(0);
 
   useEffect(() => {
     Promise.all([fetchDashboard(), fetchInstitutions()])
@@ -18,7 +73,7 @@ export function Dashboard() {
       .catch((err: unknown) => {
         setError(err instanceof Error ? err.message : "Request failed");
       });
-  }, []);
+  }, [reload]);
 
   if (error)
     return (
@@ -84,6 +139,7 @@ export function Dashboard() {
 
       <section className="dash-section" aria-labelledby="work">
         <h2 id="work">Work</h2>
+        <AutoClose onDone={() => setReload((value) => value + 1)} />
         <div className="kpis">
           <Kpi label="Open" value={stats.open} note="Not yet decided by an analyst" />
           <Kpi label="With the MLRO" value={stats.escalated} note="Routed automatically" />
